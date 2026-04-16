@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="ca">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Seguimiento en Directo — Cabalgata de Reyes</title>
+    <title>Seguiment en Directe — Cavalcada de Reis</title>
     <meta name="description"
-        content="Sigue en directo la ubicación de los Reyes Magos durante la Cabalgata. Mapa en tiempo real.">
+        content="Segueix en directe la ubicació dels Reis Mags durant la Cavalcada. Mapa en temps real.">
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -305,7 +305,7 @@
     <!-- Loading screen -->
     <div class="loading-overlay" id="loading">
         <div class="loading-overlay__icon">👑</div>
-        <div class="loading-overlay__text">Conectando con los Reyes Magos…</div>
+        <div class="loading-overlay__text">Connectant amb els Reis Mags…</div>
         <div class="loading-overlay__spinner"></div>
     </div>
 
@@ -315,13 +315,13 @@
             <div class="header__title">
                 <span class="header__icon">👑</span>
                 <div>
-                    <h1>Cabalgata de Reyes — En Directo</h1>
-                    <div class="header__subtitle">Seguimiento en tiempo real</div>
+                    <h1>Cavalcada de Reis — En Directe</h1>
+                    <div class="header__subtitle">Seguiment en temps real</div>
                 </div>
             </div>
             <div class="status-badge" id="statusBadge">
                 <div class="status-dot" id="statusDot"></div>
-                <span id="statusText">Conectando…</span>
+                <span id="statusText">Connectant…</span>
             </div>
         </header>
 
@@ -330,7 +330,7 @@
 
         <!-- Footer -->
         <footer class="footer">
-            ⚠️ La ubicación puede tener un retraso de <span>~30 segundos</span> debido a la cobertura móvil.
+            ⚠️ La ubicació pot tenir un retard d'<span>~30 segons</span> a causa de la cobertura mòbil.
         </footer>
     </div>
 
@@ -432,7 +432,7 @@
         const trailLayers = [];       // Leaflet polyline segments
         const trailGroup = L.layerGroup().addTo(map);
 
-        let currentStreet = "Ubicación desconocida";
+        let currentStreet = "Ubicació desconeguda";
         let lastAddressFetch = 0;
 
         async function fetchStreetName(lat, lng) {
@@ -462,7 +462,7 @@
         }
 
         function formatPointTime(timestamp) {
-            if (!timestamp) return new Date().toLocaleTimeString('es-ES');
+            if (!timestamp) return new Date().toLocaleTimeString('ca-ES');
             const ptDate = new Date(timestamp);
             const today = new Date();
             const isToday = ptDate.getDate() === today.getDate() &&
@@ -470,9 +470,9 @@
                 ptDate.getFullYear() === today.getFullYear();
 
             if (isToday) {
-                return ptDate.toLocaleTimeString('es-ES');
+                return ptDate.toLocaleTimeString('ca-ES');
             } else {
-                return ptDate.toLocaleDateString('es-ES') + ' ' + ptDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                return ptDate.toLocaleDateString('ca-ES') + ' ' + ptDate.toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit' });
             }
         }
 
@@ -482,17 +482,17 @@
             const latlng = L.latLng(lat, lng);
 
             const generatePopupHTML = (streetName) => `
-                <strong>👑 Rey Melchor</strong><br>
+                <strong>👑 Rei Melcior</strong><br>
                 📍 ${streetName}<br>
                 <small style="opacity:0.7">${lat.toFixed(5)}, ${lng.toFixed(5)}</small><br>
-                🕐 Última actualización: ${formatPointTime(timestamp)}
+                🕐 Última actualització: ${formatPointTime(timestamp)}
             `;
 
             if (!kingMarker) {
                 // Primera vez: crear marcador
                 kingMarker = L.marker(latlng, { icon: kingIcon })
                     .addTo(map)
-                    .bindPopup(generatePopupHTML('Buscando calle...'));
+                    .bindPopup(generatePopupHTML('Buscant carrer...'));
             } else {
                 // Actulizar posición
                 kingMarker.setLatLng(latlng);
@@ -576,21 +576,21 @@
                 case 'connected':
                     if (timestamp && (Date.now() - timestamp > 4 * 60 * 1000)) {
                         statusDot.classList.add('searching'); // Usamos visualmente el indicador amarillo
-                        statusText.textContent = 'Reconectando…';
+                        statusText.textContent = 'Reconnectant…';
                         statusDot.dataset.mode = 'reconnecting';
                     } else {
                         statusDot.classList.add('connected');
-                        statusText.textContent = 'En directo';
+                        statusText.textContent = 'En directe';
                         statusDot.dataset.mode = 'live';
                     }
                     break;
                 case 'searching':
                     statusDot.classList.add('searching');
-                    statusText.textContent = 'Buscando señal…';
+                    statusText.textContent = 'Buscant senyal…';
                     statusDot.dataset.mode = 'searching';
                     break;
                 default:
-                    statusText.textContent = 'Sin conexión';
+                    statusText.textContent = 'Sense connexió';
                     statusDot.dataset.mode = 'offline';
             }
         }
