@@ -12,17 +12,36 @@ const path = require('path');
 // node sync.js
 // ============================================================================
 
+// Intentar cargar .env si estamos en entorno de desarrollo local
+try {
+    require('dotenv').config();
+} catch (e) {
+    // Si no está instalado dotenv, asumimos que estamos en producción (ej. EasyPanel)
+    // o usando Node v20+ con --env-file=.env
+}
+
 const CONFIG = {
-    // La URL de donde extraemos el historial filtrado de Traccar
-    FIREBASE_URL: 'https://reisorient-5a6e7-default-rtdb.europe-west1.firebasedatabase.app/reyes/Melchor.json?orderBy="$key"&limitToLast=2000',
+    FIREBASE_SECRET: process.env.FIREBASE_SECRET || '',
+    FIREBASE_URL: process.env.FIREBASE_URL || '',
     OUTPUT_FILE: path.join(__dirname, 'data.json'),
     INTERVAL_MS: 60000 // 60 segundos por defecto (igual que el frontal)
 };
 
+// Verificar que las variables existan
+if (!CONFIG.FIREBASE_URL) {
+    console.error('[ERROR] FIREBASE_URL no está definida en el archivo .env');
+    process.exit(1);
+}
+
+// Generar la URL final con el token de autenticación
+const finalUrl = CONFIG.FIREBASE_SECRET 
+    ? `${CONFIG.FIREBASE_URL}&auth=${CONFIG.FIREBASE_SECRET}` 
+    : CONFIG.FIREBASE_URL;
+
 function fetchFirebaseData() {
     console.log(`[${new Date().toISOString()}] Consultando a Firebase...`);
-    
-    https.get(CONFIG.FIREBASE_URL, (res) => {
+
+    https.get(finalUrl, (res) => {
         let data = '';
 
         // Recibir trozos de datos

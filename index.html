@@ -1,15 +1,16 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Seguimiento en Directo — Cabalgata de Reyes</title>
-    <meta name="description" content="Sigue en directo la ubicación de los Reyes Magos durante la Cabalgata. Mapa en tiempo real.">
+    <meta name="description"
+        content="Sigue en directo la ubicación de los Reyes Magos durante la Cabalgata. Mapa en tiempo real.">
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-          crossorigin=""/>
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +19,9 @@
 
     <style>
         /* ===== Reset & Base ===== */
-        *, *::before, *::after {
+        *,
+        *::before,
+        *::after {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -34,7 +37,8 @@
             --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
 
-        html, body {
+        html,
+        body {
             height: 100%;
             font-family: 'Outfit', sans-serif;
             background: var(--dark);
@@ -73,8 +77,15 @@
         }
 
         @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-4px); }
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-4px);
+            }
         }
 
         .header h1 {
@@ -126,8 +137,15 @@
         }
 
         @keyframes pulse-dot {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
         }
 
         /* ===== Map ===== */
@@ -173,8 +191,15 @@
         }
 
         @keyframes marker-glow {
-            0%, 100% { box-shadow: 0 2px 12px rgba(212, 160, 23, 0.5); }
-            50% { box-shadow: 0 2px 24px rgba(212, 160, 23, 0.8), 0 0 40px rgba(212, 160, 23, 0.3); }
+
+            0%,
+            100% {
+                box-shadow: 0 2px 12px rgba(212, 160, 23, 0.5);
+            }
+
+            50% {
+                box-shadow: 0 2px 24px rgba(212, 160, 23, 0.8), 0 0 40px rgba(212, 160, 23, 0.3);
+            }
         }
 
         .king-marker__pulse {
@@ -187,8 +212,15 @@
         }
 
         @keyframes pulse-ring {
-            0% { transform: scale(0.6); opacity: 1; }
-            100% { transform: scale(1.4); opacity: 0; }
+            0% {
+                transform: scale(0.6);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(1.4);
+                opacity: 0;
+            }
         }
 
         /* ===== Loading overlay ===== */
@@ -232,7 +264,9 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         /* ===== Info popup on marker ===== */
@@ -255,11 +289,17 @@
 
         /* ===== Responsive ===== */
         @media (max-width: 400px) {
-            .header h1 { font-size: 0.95rem; }
-            .header__subtitle { display: none; }
+            .header h1 {
+                font-size: 0.95rem;
+            }
+
+            .header__subtitle {
+                display: none;
+            }
         }
     </style>
 </head>
+
 <body>
 
     <!-- Loading screen -->
@@ -296,8 +336,7 @@
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-            crossorigin=""></script>
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
     <!-- Firebase SDK eliminado (reemplazado por REST Polling) -->
 
@@ -331,9 +370,9 @@
             trailOpacityMax: 0.9,       // Opacidad del tramo más reciente
             trailOpacityMin: 0.15,      // Opacidad del tramo más antiguo
             trailSegments: 8,           // Número de segmentos de degradado
-            
+
             // 🔄 Tasa de refresco (Polling)
-            refreshIntervalSecs: 60,
+            refreshIntervalSecs: 30,
         };
 
         // ============================================================
@@ -347,8 +386,8 @@
         // Control de zoom abajo-derecha (menos intrusivo en móvil)
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        // Tiles — estilo limpio
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        // Tiles — estilo limpio y claro (Voyager de CARTO) que resalta bien las calles
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
             maxZoom: 19,
         }).addTo(map);
@@ -361,9 +400,9 @@
             .then(data => {
                 L.geoJSON(data, {
                     style: {
-                        color: 'rgba(253, 246, 227, 0.6)', // Color base crema semi-transparente
+                        color: '#6b1d3a', // Granate oscuro de tu paleta (var(--burgundy)) para que resalte en mapa claro
                         weight: 4,
-                        opacity: 0.8,
+                        opacity: 0.7,
                         dashArray: '8, 8', // Línea punteada para indicar la ruta pendiente
                         lineCap: 'round'
                     }
@@ -406,7 +445,7 @@
                 const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
                 const response = await fetch(url);
                 const data = await response.json();
-                
+
                 if (data && data.address) {
                     const road = data.address.road || data.address.pedestrian || "";
                     const suburb = data.address.suburb || data.address.village || data.address.town || data.address.city || "";
@@ -422,7 +461,22 @@
             return currentStreet;
         }
 
-        async function updateMarker(lat, lng) {
+        function formatPointTime(timestamp) {
+            if (!timestamp) return new Date().toLocaleTimeString('es-ES');
+            const ptDate = new Date(timestamp);
+            const today = new Date();
+            const isToday = ptDate.getDate() === today.getDate() &&
+                ptDate.getMonth() === today.getMonth() &&
+                ptDate.getFullYear() === today.getFullYear();
+
+            if (isToday) {
+                return ptDate.toLocaleTimeString('es-ES');
+            } else {
+                return ptDate.toLocaleDateString('es-ES') + ' ' + ptDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+            }
+        }
+
+        async function updateMarker(lat, lng, timestamp) {
             if (!lat || !lng) return;
 
             const latlng = L.latLng(lat, lng);
@@ -431,7 +485,7 @@
                 <strong>👑 Rey Melchor</strong><br>
                 📍 ${streetName}<br>
                 <small style="opacity:0.7">${lat.toFixed(5)}, ${lng.toFixed(5)}</small><br>
-                🕐 Última actualización: ${new Date().toLocaleTimeString('es-ES')}
+                🕐 Última actualización: ${formatPointTime(timestamp)}
             `;
 
             if (!kingMarker) {
@@ -454,7 +508,7 @@
             // Actualizar la calle en segundo plano
             const newStreet = await fetchStreetName(lat, lng);
             if (kingMarker) {
-                 kingMarker.setPopupContent(generatePopupHTML(newStreet));
+                kingMarker.setPopupContent(generatePopupHTML(newStreet));
             }
         }
 
@@ -516,19 +570,28 @@
         const statusText = document.getElementById('statusText');
         const loadingOverlay = document.getElementById('loading');
 
-        function setStatus(state) {
+        function setStatus(state, timestamp) {
             statusDot.className = 'status-dot';
             switch (state) {
                 case 'connected':
-                    statusDot.classList.add('connected');
-                    statusText.textContent = 'En directo';
+                    if (timestamp && (Date.now() - timestamp > 4 * 60 * 1000)) {
+                        statusDot.classList.add('searching'); // Usamos visualmente el indicador amarillo
+                        statusText.textContent = 'Reconectando…';
+                        statusDot.dataset.mode = 'reconnecting';
+                    } else {
+                        statusDot.classList.add('connected');
+                        statusText.textContent = 'En directo';
+                        statusDot.dataset.mode = 'live';
+                    }
                     break;
                 case 'searching':
                     statusDot.classList.add('searching');
                     statusText.textContent = 'Buscando señal…';
+                    statusDot.dataset.mode = 'searching';
                     break;
                 default:
                     statusText.textContent = 'Sin conexión';
+                    statusDot.dataset.mode = 'offline';
             }
         }
 
@@ -547,7 +610,7 @@
                 const url = `${CACHE_URL}?t=${Date.now()}`;
 
                 const response = await fetch(url);
-                
+
                 // Si el archivo aún no ha sido creado por el Worker del Backend, fallará amigablemente
                 if (!response.ok) {
                     throw new Error(`Archivo no encontrado o acceso denegado. HTTP ${response.status}`);
@@ -573,8 +636,8 @@
                         drawTrail();
                         if (entries.length > 0) {
                             const last = entries[entries.length - 1]; // Último registro en el tiempo
-                            updateMarker(last.lat, last.lng);
-                            setStatus('connected');
+                            updateMarker(last.lat, last.lng, last.timestamp);
+                            setStatus('connected', last.timestamp);
                         }
                         console.log(`🛤️ Histórico Caché Local cargado: ${entries.length} puntos.`);
                         initialLoadDone = true;
@@ -587,9 +650,9 @@
                             // Comparamos los timestamps para inyectar si la fecha del archivo data.json varió
                             if (!lastKnown || last.timestamp > lastKnown.timestamp) {
                                 addTrailPoint(last.lat, last.lng, last.timestamp);
-                                updateMarker(last.lat, last.lng);
+                                updateMarker(last.lat, last.lng, last.timestamp);
                             }
-                            setStatus('connected');
+                            setStatus('connected', last.timestamp);
                         }
                     }
                 }
@@ -600,20 +663,14 @@
             loadingOverlay.classList.add('hidden');
         }
 
-        // Reloj de cuenta atrás para la interfaz
-        let secondsUntilRefresh = CONFIG.refreshIntervalSecs;
+        // ============================================================
+        // 🔄 Polling Silencioso
+        // ============================================================
+        // Consultar el caché estático del servidor en segundo plano
+        // (Al ser un fichero estático, no consume apenas recursos del servidor)
         setInterval(() => {
-            secondsUntilRefresh--;
-            if (secondsUntilRefresh <= 0) {
-                secondsUntilRefresh = CONFIG.refreshIntervalSecs;
-                fetchLatestData();
-            }
-            // Actualizar la placa de estado si está conectado
-            const statusText = document.getElementById('statusText');
-            if (statusDot.classList.contains('connected')) {
-                statusText.innerHTML = `En directo (Nuevos datos en ${secondsUntilRefresh}s)`;
-            }
-        }, 1000);
+            fetchLatestData();
+        }, (CONFIG.refreshIntervalSecs || 20) * 1000);
 
         // Arrancamos la primera petición
         fetchLatestData();
@@ -636,4 +693,5 @@
     </script>
 
 </body>
+
 </html>
