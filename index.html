@@ -346,18 +346,9 @@
         // ============================================================
 
         const CONFIG = {
-            // 🔥 Firebase — pega aquí la configuración de tu proyecto
-            firebase: {
-                // Solo la URL de tu Realtime Database
-                databaseURL: "https://reisorient-5a6e7-default-rtdb.europe-west1.firebasedatabase.app",
-            },
-
             // 📍 Centro del mapa (coordenadas de la ruta oficial)
             mapCenter: [-34.9080, -56.1425],  // Aproximado al centro de la ruta proporcionada
             mapZoom: 15,
-
-            // 👑 Ruta en Firebase donde Traccar escribe los datos
-            firebasePath: "reyes/Melchor",
 
             // Campos en formato Traccar App
             latField: "latitude",
@@ -411,35 +402,71 @@
             .catch(error => console.error('Error cargando la ruta:', error));
 
         // ============================================================
-        // 👑 MARCADOR PERSONALIZADO DEL REY
+        // 👑 ESTADO DE LOS REYES (Multi-Rey)
         // ============================================================
+        
+        const kingsState = {
+            Melchor: { 
+                name: 'Rei Melcior',
+                icon: '👑', 
+                color: '#d4a017', // Dorado
+                marker: null, 
+                trailPoints: [], 
+                trailGroup: L.layerGroup().addTo(map),
+                currentStreet: "Ubicació desconeguda",
+                lastAddressFetch: 0
+            },
+            Gaspar: { 
+                name: 'Rei Gaspar',
+                icon: '👑', 
+                color: '#ab2330', // Granate/Carmesí
+                marker: null, 
+                trailPoints: [], 
+                trailGroup: L.layerGroup().addTo(map),
+                currentStreet: "Ubicació desconeguda",
+                lastAddressFetch: 0
+            },
+            Baltasar: { 
+                name: 'Rei Baltasar',
+                icon: '👑', 
+                color: '#228b22', // Verde
+                marker: null, 
+                trailPoints: [], 
+                trailGroup: L.layerGroup().addTo(map),
+                currentStreet: "Ubicació desconeguda",
+                lastAddressFetch: 0
+            },
+            Estrella: { 
+                name: 'Estrella d\'Orient',
+                icon: '⭐', 
+                color: '#f0f8ff', // Blanco Plata
+                marker: null, 
+                trailPoints: [], 
+                trailGroup: L.layerGroup().addTo(map),
+                currentStreet: "Ubicació desconeguda",
+                lastAddressFetch: 0
+            }
+        };
 
-        const kingIcon = L.divIcon({
-            className: 'king-marker',
-            html: `
-                <div class="king-marker__pulse"></div>
-                <div class="king-marker__inner">👑</div>
-            `,
-            iconSize: [60, 60],
-            iconAnchor: [30, 30],
-        });
+        function getKingIcon(king) {
+            return L.divIcon({
+                className: 'king-marker',
+                html: `
+                    <div class="king-marker__pulse" style="background: ${king.color}33"></div>
+                    <div class="king-marker__inner" style="background: linear-gradient(135deg, ${king.color}dd, ${king.color}); box-shadow: 0 2px 12px ${king.color}80; border-color: ${king.color};">${king.icon}</div>
+                `,
+                iconSize: [60, 60],
+                iconAnchor: [30, 30],
+            });
+        }
 
-        let kingMarker = null;
         let firstUpdate = true;
 
-        // 🛤️ Trail state
-        const trailPoints = [];       // [{lat, lng, timestamp}, ...]
-        const trailLayers = [];       // Leaflet polyline segments
-        const trailGroup = L.layerGroup().addTo(map);
-
-        let currentStreet = "Ubicació desconeguda";
-        let lastAddressFetch = 0;
-
-        async function fetchStreetName(lat, lng) {
+        async function fetchStreetName(lat, lng, kingId) {
             const now = Date.now();
-            // Limitar a máximo 1 petición cada 2 segundos (política de OpenStreetMap Nominatim)
-            if (now - lastAddressFetch < 2000) return currentStreet;
-            lastAddressFetch = now;
+            const king = kingsState[kingId];
+            if (now - king.lastAddressFetch < 2000) return king.currentStreet;
+            king.lastAddressFetch = now;
 
             try {
                 const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
@@ -450,15 +477,15 @@
                     const road = data.address.road || data.address.pedestrian || "";
                     const suburb = data.address.suburb || data.address.village || data.address.town || data.address.city || "";
                     if (road) {
-                        currentStreet = road + (suburb ? `, ${suburb}` : '');
+                        king.currentStreet = road + (suburb ? `, ${suburb}` : '');
                     } else if (data.display_name) {
-                        currentStreet = data.display_name.split(',')[0];
+                        king.currentStreet = data.display_name.split(',')[0];
                     }
                 }
             } catch (error) {
-                console.error("Error buscando el nombre de la calle: ", error);
+                console.error(`Error buscando calle para ${kingId}: `, error);
             }
-            return currentStreet;
+            return king.currentStreet;
         }
 
         function formatPointTime(timestamp) {
@@ -476,39 +503,36 @@
             }
         }
 
-        async function updateMarker(lat, lng, timestamp) {
+        async function updateMarker(kingId, lat, lng, timestamp) {
             if (!lat || !lng) return;
-
+            const king = kingsState[kingId];
             const latlng = L.latLng(lat, lng);
 
             const generatePopupHTML = (streetName) => `
-                <strong>👑 Rei Melcior</strong><br>
+                <strong>${king.icon} ${king.name}</strong><br>
                 📍 ${streetName}<br>
                 <small style="opacity:0.7">${lat.toFixed(5)}, ${lng.toFixed(5)}</small><br>
                 🕐 Última actualització: ${formatPointTime(timestamp)}
             `;
 
-            if (!kingMarker) {
-                // Primera vez: crear marcador
-                kingMarker = L.marker(latlng, { icon: kingIcon })
+            if (!king.marker) {
+                king.marker = L.marker(latlng, { icon: getKingIcon(king) })
                     .addTo(map)
                     .bindPopup(generatePopupHTML('Buscant carrer...'));
             } else {
-                // Actulizar posición
-                kingMarker.setLatLng(latlng);
-                kingMarker.setPopupContent(generatePopupHTML(currentStreet));
+                king.marker.setLatLng(latlng);
+                king.marker.setPopupContent(generatePopupHTML(king.currentStreet));
             }
 
-            // Centrar el mapa en la primera actualización
-            if (firstUpdate) {
+            // Centrar el mapa en el primer ping de la Estrella o de Melchor (Prioridad visual inicial)
+            if (firstUpdate && (kingId === 'Estrella' || kingId === 'Melchor')) {
                 map.setView(latlng, CONFIG.mapZoom);
                 firstUpdate = false;
             }
 
-            // Actualizar la calle en segundo plano
-            const newStreet = await fetchStreetName(lat, lng);
-            if (kingMarker) {
-                kingMarker.setPopupContent(generatePopupHTML(newStreet));
+            const newStreet = await fetchStreetName(lat, lng, kingId);
+            if (king.marker) {
+                king.marker.setPopupContent(generatePopupHTML(newStreet));
             }
         }
 
@@ -516,49 +540,49 @@
         // 🛤️ TRAIL — Rastro del recorrido
         // ============================================================
 
-        function addTrailPoint(lat, lng, timestamp) {
-            trailPoints.push({ lat, lng, timestamp });
-            pruneOldPoints();
-            drawTrail();
+        function addTrailPoint(kingId, lat, lng, timestamp) {
+            const king = kingsState[kingId];
+            king.trailPoints.push({ lat, lng, timestamp });
+            pruneOldPoints(kingId);
+            drawTrail(kingId);
         }
 
-        function pruneOldPoints() {
+        function pruneOldPoints(kingId) {
+            const king = kingsState[kingId];
             const cutoff = Date.now() - (CONFIG.trailMaxHours * 60 * 60 * 1000);
-            while (trailPoints.length > 0 && trailPoints[0].timestamp < cutoff) {
-                trailPoints.shift();
+            while (king.trailPoints.length > 0 && king.trailPoints[0].timestamp < cutoff) {
+                king.trailPoints.shift();
             }
         }
 
-        function drawTrail() {
-            // Limpiar segmentos anteriores
-            trailGroup.clearLayers();
+        function drawTrail(kingId) {
+            const king = kingsState[kingId];
+            king.trailGroup.clearLayers();
 
-            if (trailPoints.length < 2) return;
+            if (king.trailPoints.length < 2) return;
 
             const segments = CONFIG.trailSegments;
-            const pointsPerSeg = Math.max(2, Math.ceil(trailPoints.length / segments));
+            const pointsPerSeg = Math.max(2, Math.ceil(king.trailPoints.length / segments));
 
             for (let i = 0; i < segments; i++) {
                 const start = i * pointsPerSeg;
-                // +1 overlap para que los segmentos se conecten
-                const end = Math.min((i + 1) * pointsPerSeg + 1, trailPoints.length);
-                if (start >= trailPoints.length) break;
+                const end = Math.min((i + 1) * pointsPerSeg + 1, king.trailPoints.length);
+                if (start >= king.trailPoints.length) break;
 
-                const segPoints = trailPoints.slice(start, end).map(p => [p.lat, p.lng]);
+                const segPoints = king.trailPoints.slice(start, end).map(p => [p.lat, p.lng]);
                 if (segPoints.length < 2) continue;
 
-                // Opacidad creciente hacia el segmento más reciente
                 const t = segments === 1 ? 1 : i / (segments - 1);
                 const opacity = CONFIG.trailOpacityMin + t * (CONFIG.trailOpacityMax - CONFIG.trailOpacityMin);
 
                 const line = L.polyline(segPoints, {
-                    color: CONFIG.trailColor,
+                    color: king.color,
                     weight: CONFIG.trailWeight,
                     opacity: opacity,
                     lineCap: 'round',
                     lineJoin: 'round',
                 });
-                trailGroup.addLayer(line);
+                king.trailGroup.addLayer(line);
             }
         }
 
@@ -575,7 +599,7 @@
             switch (state) {
                 case 'connected':
                     if (timestamp && (Date.now() - timestamp > 4 * 60 * 1000)) {
-                        statusDot.classList.add('searching'); // Usamos visualmente el indicador amarillo
+                        statusDot.classList.add('searching');
                         statusText.textContent = 'Reconnectant…';
                         statusDot.dataset.mode = 'reconnecting';
                     } else {
@@ -605,61 +629,64 @@
         async function fetchLatestData() {
             try {
                 if (!initialLoadDone) setStatus('searching');
-
-                // Evitamos caché del navegador añadiendo un timestamp aleatorio (Cache-Busting)
                 const url = `${CACHE_URL}?t=${Date.now()}`;
-
                 const response = await fetch(url);
-
-                // Si el archivo aún no ha sido creado por el Worker del Backend, fallará amigablemente
-                if (!response.ok) {
-                    throw new Error(`Archivo no encontrado o acceso denegado. HTTP ${response.status}`);
-                }
-
+                
+                if (!response.ok) throw new Error(`Archivo no encontrado. HTTP ${response.status}`);
                 const newData = await response.json();
 
                 if (newData) {
                     const cutoff = Date.now() - (CONFIG.trailMaxHours * 60 * 60 * 1000);
-                    const entries = Object.values(newData)
-                        .filter(d => d && d.location && d.location.coords && d.location.timestamp)
-                        .map(d => ({
-                            lat: parseFloat(d.location.coords[CONFIG.latField]),
-                            lng: parseFloat(d.location.coords[CONFIG.lngField]),
-                            timestamp: new Date(d.location.timestamp).getTime(),
-                        }))
-                        .filter(p => !isNaN(p.lat) && !isNaN(p.lng) && p.timestamp >= cutoff)
-                        .sort((a, b) => a.timestamp - b.timestamp);
+                    let mostRecentGlobalTimestamp = 0;
 
-                    if (!initialLoadDone) {
-                        // Primera carga: Dibujar todo el rastro
-                        entries.forEach(p => trailPoints.push(p));
-                        drawTrail();
-                        if (entries.length > 0) {
-                            const last = entries[entries.length - 1]; // Último registro en el tiempo
-                            updateMarker(last.lat, last.lng, last.timestamp);
-                            setStatus('connected', last.timestamp);
-                        }
-                        console.log(`🛤️ Histórico Caché Local cargado: ${entries.length} puntos.`);
-                        initialLoadDone = true;
-                    } else {
-                        // Polling: Actualizar sólo si el último dato del archivo es verdaderamente nuevo
-                        if (entries.length > 0) {
-                            const last = entries[entries.length - 1]; // El más reciente de toda la matriz almacenada
-                            const lastKnown = trailPoints.length > 0 ? trailPoints[trailPoints.length - 1] : null;
+                    for (const kingId in newData) {
+                        if (!kingsState[kingId]) continue;
+                        const kingData = newData[kingId];
+                        if (!kingData) continue;
 
-                            // Comparamos los timestamps para inyectar si la fecha del archivo data.json varió
-                            if (!lastKnown || last.timestamp > lastKnown.timestamp) {
-                                addTrailPoint(last.lat, last.lng, last.timestamp);
-                                updateMarker(last.lat, last.lng, last.timestamp);
+                        const entries = Object.values(kingData)
+                            .filter(d => d && d.location && d.location.coords && d.location.timestamp)
+                            .map(d => ({
+                                lat: parseFloat(d.location.coords[CONFIG.latField]),
+                                lng: parseFloat(d.location.coords[CONFIG.lngField]),
+                                timestamp: new Date(d.location.timestamp).getTime(),
+                            }))
+                            .filter(p => !isNaN(p.lat) && !isNaN(p.lng) && p.timestamp >= cutoff)
+                            .sort((a, b) => a.timestamp - b.timestamp);
+
+                        if (entries.length > 0) {
+                            const last = entries[entries.length - 1];
+                            if (last.timestamp > mostRecentGlobalTimestamp) {
+                                mostRecentGlobalTimestamp = last.timestamp;
                             }
-                            setStatus('connected', last.timestamp);
+
+                            if (!initialLoadDone) {
+                                entries.forEach(p => kingsState[kingId].trailPoints.push(p));
+                                drawTrail(kingId);
+                                updateMarker(kingId, last.lat, last.lng, last.timestamp);
+                            } else {
+                                const king = kingsState[kingId];
+                                const lastKnown = king.trailPoints.length > 0 ? king.trailPoints[king.trailPoints.length - 1] : null;
+                                if (!lastKnown || last.timestamp > lastKnown.timestamp) {
+                                    addTrailPoint(kingId, last.lat, last.lng, last.timestamp);
+                                    updateMarker(kingId, last.lat, last.lng, last.timestamp);
+                                }
+                            }
                         }
+                    }
+
+                    if (mostRecentGlobalTimestamp > 0) {
+                        setStatus('connected', mostRecentGlobalTimestamp);
+                    }
+                    
+                    if (!initialLoadDone) {
+                        console.log(`🛤️ Histórico Caché Local múltiple cargado.`);
+                        initialLoadDone = true;
                     }
                 }
             } catch (err) {
-                console.warn("Retraso sincronizando caché estático del servidor:", err.message);
+                console.warn("Retraso sincronizando caché estático:", err.message);
             }
-            // Retirar pantalla de carga incondicionalmente
             loadingOverlay.classList.add('hidden');
         }
 
@@ -686,9 +713,8 @@
 
         // Pequeño detalle: añadimos unas estrellas en el header al hacer scroll
         document.addEventListener('DOMContentLoaded', () => {
-            console.log('🌟 ReisOrient PoC — ¡Mapa listo!');
+            console.log('🌟 ReisOrient — ¡Sistema Autónomo listo!');
             console.log('📋 Configuración:', CONFIG);
-            console.log('ℹ️  Para probar, escribe coordenadas en Firebase en:', CONFIG.firebasePath);
         });
     </script>
 
