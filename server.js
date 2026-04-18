@@ -129,11 +129,11 @@ const server = http.createServer((req, res) => {
     });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`===============================================`);
     console.log(`🚀 REISORIENT: SERVIDOR OPTIMIZADO PARA TRÁFICO`);
     console.log(`===============================================`);
-    console.log(`🌍 Visor en: http://localhost:${PORT}`);
+    console.log(`🌍 Visor en línea en el puerto: ${PORT}`);
     console.log(`📡 Modo Compresión Gzip: ACTIVADO ✅`);
     console.log(`===============================================`);
 });
