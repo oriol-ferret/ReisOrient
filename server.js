@@ -43,9 +43,9 @@ const server = http.createServer((req, res) => {
                     }
                 };
                 fs.writeFileSync(DATA_FILE, JSON.stringify(db));
-                console.log(` ✅ GUARDADO: ${p.id}`);
-                res.writeHead(200);
-                return res.end('OK');
+                console.log(` ✅ [${new Date().toLocaleTimeString()}] Guardado: ${p.id} desde ${req.socket.remoteAddress}`);
+                res.writeHead(200, { 'Connection': 'close', 'Content-Length': '0' });
+                return res.end();
             }
             res.writeHead(400); res.end();
         });
