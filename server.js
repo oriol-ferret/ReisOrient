@@ -2,189 +2,76 @@ const http = require('http');
 const fs = require('fs');
 const url = require('url');
 const path = require('path');
-const zlib = require('zlib');
 const querystring = require('querystring');
 
-// --- CONFIGURACIÓN ---
 const PORT = 8080;
 const DATA_DIR = process.env.DATA_PATH || path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'data.json');
 
-if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-}
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-// --- BASE DE DATOS LOCAL ---
 let db = {};
-
-function loadLocalCache() {
-    try {
-        if (fs.existsSync(DATA_FILE)) {
-            const content = fs.readFileSync(DATA_FILE, 'utf8');
-            if (content) db = JSON.parse(content);
-            console.log(`[DB] Base de datos cargada. Reyes en memoria: ${Object.keys(db).join(', ') || 'Ninguno'}`);
-        }
-    } catch (e) {
-        console.error("[ERROR] No se pudo cargar data.json:", e.message);
-        db = {};
-    }
+if (fs.existsSync(DATA_FILE)) {
+    try { db = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); } catch (e) { db = {}; }
 }
 
-function saveLocalCache() {
-    try {
-        fs.writeFileSync(DATA_FILE, JSON.stringify(db, null, 2));
-    } catch (e) {
-        console.error("[ERROR] No se pudo guardar data.json:", e.message);
-    }
-}
-
-loadLocalCache();
-
-// --- PROCESADOR DE PINGS TRACCAR ---
-function handleTraccarPing(params, res) {
-    const { id, lat, lon, timestamp: tsQuery } = params;
-    
-    if (id && lat && lon) {
-        if (!db[id]) db[id] = {};
-        
-        const timestamp = tsQuery ? parseInt(tsQuery) * 1000 : Date.now();
-        const pointId = "p_" + Date.now();
-
-        db[id][pointId] = {
-            device_id: id,
-            location: {
-                coords: { latitude: parseFloat(lat), longitude: parseFloat(lon) },
-                timestamp: new Date(timestamp).toISOString()
-            }
-        };
-
-        const keys = Object.keys(db[id]);
-        if (keys.length > 1500) {
-            const keysToSort = keys.sort();
-            delete db[id][keysToSort[0]];
-        }
-
-        saveLocalCache();
-        console.log(`[TRACCAR] ✅ Recibido ${id}: [${lat}, ${lon}]`);
-        
-        res.writeHead(200, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
-        res.end('OK');
-        return true;
-    }
-    return false;
-}
-
-// --- SERVIDOR ---
 const server = http.createServer((req, res) => {
     const parsedUrl = url.parse(req.url, true);
-    const pathname = parsedUrl.pathname;
+    const pathname = parsedUrl.pathname === '/' ? '/index.html' : parsedUrl.pathname;
 
-    // A. EXCLUSIVO EASYPANEL: Respueta rápida de salud
-    if (pathname === '/health' || (pathname === '/' && req.method === 'HEAD')) {
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
+    // 1. RESPUESTA INSTANTÁNEA PARA EASYPANEL (HEALTH CHECK)
+    if (pathname === '/health' || req.method === 'HEAD') {
+        res.writeHead(200);
         return res.end('OK');
     }
 
-    console.log(`[HTTP] ${req.method} ${pathname}`);
+    console.log(`[${req.method}] ${pathname}`);
 
-    // B. RECEPTOR TRACCAR (Soporta GET y POST)
-    if (pathname === '/') {
+    // 2. RECEPTOR TRACCAR
+    if (pathname === '/index.html' && req.method === 'POST') {
         let body = '';
-        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('data', c => body += c);
         req.on('end', () => {
-            const combinedParams = { ...parsedUrl.query, ...querystring.parse(body) };
-            if (handleTraccarPing(combinedParams, res)) return;
-
-            // Si es un GET normal a /, servimos el mapa
-            if (req.method === 'GET') {
-                serveFile('/index.html', req, res);
-            } else {
-                res.writeHead(404);
-                res.end();
+            const p = { ...parsedUrl.query, ...querystring.parse(body) };
+            if (p.id && p.lat && p.lon) {
+                if (!db[p.id]) db[p.id] = {};
+                db[p.id]["p_" + Date.now()] = {
+                    device_id: p.id,
+                    location: {
+                        coords: { latitude: parseFloat(p.lat), longitude: parseFloat(p.lon) },
+                        timestamp: new Date().toISOString()
+                    }
+                };
+                fs.writeFileSync(DATA_FILE, JSON.stringify(db));
+                console.log(` ✅ GUARDADO: ${p.id}`);
+                res.writeHead(200);
+                return res.end('OK');
             }
+            res.writeHead(400); res.end();
         });
         return;
     }
 
-    // C. SERVIDOR DE ARCHIVOS
-    serveFile(pathname, req, res);
-});
-
-// Cache en memoria para archivos críticos (Velocidad extrema para Health Checks)
-const fileCache = {};
-
-function serveFile(pathname, req, res) {
-    let filePath = pathname === '/data.json' ? DATA_FILE : path.join(__dirname, pathname);
+    // 3. SEGUIDOR DE ARCHIVOS (SIMPLIFICADO AL MÁXIMO)
+    const filePath = pathname === '/data.json' ? DATA_FILE : path.join(__dirname, pathname);
     const ext = path.parse(pathname).ext;
-    
-    // Si es data.json o no está en caché, leemos de disco
-    if (pathname === '/data.json' || !fileCache[pathname]) {
-        fs.stat(filePath, (err, stat) => {
-            if (err || !stat.isFile()) {
-                res.writeHead(404);
-                return res.end("Not Found");
-            }
+    const mimes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.geojson': 'application/json' };
 
-            const mimeMap = {
-                '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
-                '.json': 'application/json', '.geojson': 'application/json',
-                '.png': 'image/png', '.jpg': 'image/jpeg'
-            };
-
-            const headers = { 'Content-Type': mimeMap[ext] || 'text/plain' };
-            if (pathname === '/data.json') {
-                headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
-                headers['Pragma'] = 'no-cache';
-                headers['Expires'] = '0';
-            }
-
-            const acceptEncoding = req.headers['accept-encoding'] || '';
-            const shouldGzip = acceptEncoding.includes('gzip') && ['.json', '.html', '.js', '.geojson', '.css'].includes(ext);
-
-            if (shouldGzip) {
-                headers['Content-Encoding'] = 'gzip';
-                res.writeHead(200, headers);
-                const raw = fs.createReadStream(filePath);
-                const gzip = zlib.createGzip();
-                raw.on('error', () => res.end());
-                gzip.on('error', () => res.end());
-                raw.pipe(gzip).pipe(res);
-            } else {
-                res.writeHead(200, headers);
-                const raw = fs.createReadStream(filePath);
-                raw.on('error', () => res.end());
-                raw.pipe(res);
-            }
-
-            // Cacheamos archivos estáticos (excepto data.json)
-            if (pathname !== '/data.json' && stat.size < 1000000) {
-                fs.readFile(filePath, (err, data) => {
-                    if (!err) fileCache[pathname] = data;
-                });
-            }
+    fs.readFile(filePath, (err, data) => {
+        if (err) {
+            res.writeHead(404);
+            return res.end('Not Found');
+        }
+        res.writeHead(200, { 
+            'Content-Type': mimes[ext] || 'text/plain',
+            'Cache-Control': pathname === '/data.json' ? 'no-cache' : 'public, max-age=3600'
         });
-    } else {
-        // Servir desde memoria (instantáneo)
-        const mimeMap = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.geojson': 'application/json' };
-        res.writeHead(200, { 'Content-Type': mimeMap[ext] || 'text/plain' });
-        res.end(fileCache[pathname]);
-    }
-}
-
-// Cierre limpio para evitar errores de npm/EasyPanel
-process.on('SIGTERM', () => {
-    console.log('[SYSTEM] SIGTERM recibido. Cerrando servidor...');
-    server.close(() => {
-        process.exit(0);
+        res.end(data);
     });
 });
 
+process.on('SIGTERM', () => process.exit(0));
+
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`===============================================`);
-    console.log(`🚀 REISORIENT: RECEPTOR MULTI-PROTOCOLO`);
-    console.log(`===============================================`);
-    console.log(`🌍 Visor: http://0.0.0.0:${PORT}`);
-    console.log(`📡 Receptor Traccar (GET/POST): ACTIVO ✅`);
-    console.log(`📦 Persistencia: ${DATA_FILE}`);
-    console.log(`===============================================`);
+    console.log(`🚀 SERVIDOR EN LINEA EN PUERTO ${PORT}`);
 });

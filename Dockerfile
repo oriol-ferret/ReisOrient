@@ -18,5 +18,5 @@ RUN mkdir -p data
 # Exponemos el puerto
 EXPOSE 8080
 
-# Comando de inicio
-CMD ["npm", "start"]
+# Comando de inicio directo (más estable en EasyPanel)
+CMD ["node", "server.js"]
