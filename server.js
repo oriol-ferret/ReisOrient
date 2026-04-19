@@ -87,7 +87,15 @@ const server = http.createServer((req, res) => {
     // B. SERVIDOR DE ARCHIVOS (WEB) CON COMPRESIÓN GZIP
     if (pathname === '/') pathname = '/index.html';
     
-    const filePath = path.join(__dirname, pathname);
+    // CASO ESPECIAL: Si piden data.json, usamos la ruta absoluta de DATA_FILE
+    // (Esto es vital para los volúmenes de EasyPanel)
+    let filePath;
+    if (pathname === '/data.json') {
+        filePath = DATA_FILE;
+    } else {
+        filePath = path.join(__dirname, pathname);
+    }
+
     const ext = path.parse(pathname).ext;
     const mimeMap = {
         '.html': 'text/html',
