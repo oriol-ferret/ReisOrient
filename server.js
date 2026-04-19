@@ -131,10 +131,17 @@ const server = http.createServer((req, res) => {
             headers['Content-Encoding'] = 'gzip';
             res.writeHead(200, headers);
             const raw = fs.createReadStream(filePath);
-            raw.pipe(zlib.createGzip()).pipe(res);
+            const compressor = zlib.createGzip();
+            
+            raw.on('error', () => res.end());
+            compressor.on('error', () => res.end());
+
+            raw.pipe(compressor).pipe(res);
         } else {
             res.writeHead(200, headers);
-            fs.createReadStream(filePath).pipe(res);
+            const raw = fs.createReadStream(filePath);
+            raw.on('error', () => res.end());
+            raw.pipe(res);
         }
     });
 });
