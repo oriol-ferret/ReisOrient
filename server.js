@@ -46,6 +46,8 @@ const server = http.createServer((req, res) => {
     const parsedUrl = url.parse(req.url, true);
     let pathname = parsedUrl.pathname;
 
+    console.log(`[HTTP] ${req.method} ${pathname} - Incoming request...`);
+
     // A. RECEPTOR TRACCAR (Directo a Memoria y Disco)
     if (pathname === '/' && parsedUrl.query.id && parsedUrl.query.lat && parsedUrl.query.lon) {
         const kingId = parsedUrl.query.id;
