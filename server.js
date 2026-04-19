@@ -79,20 +79,23 @@ const server = http.createServer((req, res) => {
     const parsedUrl = url.parse(req.url, true);
     const pathname = parsedUrl.pathname;
 
+    // A. EXCLUSIVO EASYPANEL: Respueta rápida de salud
+    if (pathname === '/health' || (pathname === '/' && req.method === 'HEAD')) {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        return res.end('OK');
+    }
+
     console.log(`[HTTP] ${req.method} ${pathname}`);
 
-    // A. RECEPTOR TRACCAR (Soporta GET y POST)
+    // B. RECEPTOR TRACCAR (Soporta GET y POST)
     if (pathname === '/') {
         let body = '';
         req.on('data', chunk => { body += chunk.toString(); });
         req.on('end', () => {
-            // Combinamos query params de la URL y params del cuerpo del mensaje
             const combinedParams = { ...parsedUrl.query, ...querystring.parse(body) };
-            
-            // Si procesamos un ping con éxito, terminamos aquí
             if (handleTraccarPing(combinedParams, res)) return;
 
-            // Si llegamos aquí y es '/' con GET, servimos index.html
+            // Si es un GET normal a /, servimos el mapa
             if (req.method === 'GET') {
                 serveFile('/index.html', req, res);
             } else {
@@ -103,55 +106,78 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // B. SERVIDOR DE ARCHIVOS
+    // C. SERVIDOR DE ARCHIVOS
     serveFile(pathname, req, res);
 });
 
+// Cache en memoria para archivos críticos (Velocidad extrema para Health Checks)
+const fileCache = {};
+
 function serveFile(pathname, req, res) {
-    let filePath;
-    if (pathname === '/data.json') {
-        filePath = DATA_FILE;
-    } else {
-        filePath = path.join(__dirname, pathname);
-    }
-
+    let filePath = pathname === '/data.json' ? DATA_FILE : path.join(__dirname, pathname);
     const ext = path.parse(pathname).ext;
-    const mimeMap = {
-        '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
-        '.json': 'application/json', '.geojson': 'application/json',
-        '.png': 'image/png', '.jpg': 'image/jpeg'
-    };
+    
+    // Si es data.json o no está en caché, leemos de disco
+    if (pathname === '/data.json' || !fileCache[pathname]) {
+        fs.stat(filePath, (err, stat) => {
+            if (err || !stat.isFile()) {
+                res.writeHead(404);
+                return res.end("Not Found");
+            }
 
-    fs.stat(filePath, (err, stat) => {
-        if (err || !stat.isFile()) {
-            res.writeHead(404);
-            return res.end("Not Found");
-        }
+            const mimeMap = {
+                '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
+                '.json': 'application/json', '.geojson': 'application/json',
+                '.png': 'image/png', '.jpg': 'image/jpeg'
+            };
 
-        const headers = { 'Content-Type': mimeMap[ext] || 'text/plain' };
-        if (pathname === '/data.json') {
-            headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
-            headers['Pragma'] = 'no-cache';
-            headers['Expires'] = '0';
-        }
+            const headers = { 'Content-Type': mimeMap[ext] || 'text/plain' };
+            if (pathname === '/data.json') {
+                headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+                headers['Pragma'] = 'no-cache';
+                headers['Expires'] = '0';
+            }
 
-        const acceptEncoding = req.headers['accept-encoding'] || '';
-        if (acceptEncoding.includes('gzip') && ['.json', '.html', '.js', '.geojson', '.css'].includes(ext)) {
-            headers['Content-Encoding'] = 'gzip';
-            res.writeHead(200, headers);
-            const raw = fs.createReadStream(filePath);
-            const gzip = zlib.createGzip();
-            raw.on('error', () => res.end());
-            gzip.on('error', () => res.end());
-            raw.pipe(gzip).pipe(res);
-        } else {
-            res.writeHead(200, headers);
-            const raw = fs.createReadStream(filePath);
-            raw.on('error', () => res.end());
-            raw.pipe(res);
-        }
-    });
+            const acceptEncoding = req.headers['accept-encoding'] || '';
+            const shouldGzip = acceptEncoding.includes('gzip') && ['.json', '.html', '.js', '.geojson', '.css'].includes(ext);
+
+            if (shouldGzip) {
+                headers['Content-Encoding'] = 'gzip';
+                res.writeHead(200, headers);
+                const raw = fs.createReadStream(filePath);
+                const gzip = zlib.createGzip();
+                raw.on('error', () => res.end());
+                gzip.on('error', () => res.end());
+                raw.pipe(gzip).pipe(res);
+            } else {
+                res.writeHead(200, headers);
+                const raw = fs.createReadStream(filePath);
+                raw.on('error', () => res.end());
+                raw.pipe(res);
+            }
+
+            // Cacheamos archivos estáticos (excepto data.json)
+            if (pathname !== '/data.json' && stat.size < 1000000) {
+                fs.readFile(filePath, (err, data) => {
+                    if (!err) fileCache[pathname] = data;
+                });
+            }
+        });
+    } else {
+        // Servir desde memoria (instantáneo)
+        const mimeMap = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.geojson': 'application/json' };
+        res.writeHead(200, { 'Content-Type': mimeMap[ext] || 'text/plain' });
+        res.end(fileCache[pathname]);
+    }
 }
+
+// Cierre limpio para evitar errores de npm/EasyPanel
+process.on('SIGTERM', () => {
+    console.log('[SYSTEM] SIGTERM recibido. Cerrando servidor...');
+    server.close(() => {
+        process.exit(0);
+    });
+});
 
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`===============================================`);
