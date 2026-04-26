@@ -10,7 +10,10 @@ const DATA_FILE = path.join(DATA_DIR, 'data.json');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
+// RESET TOTAL: Empezar siempre limpio hoy
 let db = {};
+fs.writeFileSync(DATA_FILE, JSON.stringify(db));
+
 function refreshDB() {
     if (fs.existsSync(DATA_FILE)) {
         try { db = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); } catch (e) { db = {}; }
@@ -45,8 +48,9 @@ const server = http.createServer((req, res) => {
             const lon = params.lon || params.longitude;
 
             if (id && lat && lon) {
-                // Normalizar ID: melchor -> Melchor
+                // Normalizar ID: melchor -> Melcior (Català)
                 id = id.charAt(0).toUpperCase() + id.slice(1).toLowerCase();
+                if (id === "Melchor") id = "Melcior"; 
                 
                 refreshDB();
                 if (!db[id]) db[id] = {};
