@@ -11,48 +11,63 @@ const DATA_FILE = path.join(DATA_DIR, 'data.json');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 let db = {};
-if (fs.existsSync(DATA_FILE)) {
-    try { db = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); } catch (e) { db = {}; }
+function refreshDB() {
+    if (fs.existsSync(DATA_FILE)) {
+        try { db = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); } catch (e) { db = {}; }
+    }
 }
+refreshDB();
 
 const server = http.createServer((req, res) => {
     const parsedUrl = url.parse(req.url, true);
-    const pathname = parsedUrl.pathname === '/' ? '/index.html' : parsedUrl.pathname;
+    let pathname = parsedUrl.pathname;
+    if (pathname === '/') pathname = '/index.html';
 
-    // 1. RESPUESTA INSTANTÁNEA PARA EASYPANEL (HEALTH CHECK)
+    // 1. HEALTH CHECK RAPIDO
     if (pathname === '/health' || req.method === 'HEAD') {
         res.writeHead(200);
         return res.end('OK');
     }
 
-    console.log(`[${req.method}] ${pathname}`);
-
-    // 2. RECEPTOR TRACCAR
-    if (pathname === '/index.html' && req.method === 'POST') {
+    // 2. RECEPTOR TRACCAR (Flexible y con Logs)
+    if (req.method === 'POST' || (req.method === 'GET' && parsedUrl.query.id)) {
         let body = '';
         req.on('data', c => body += c);
         req.on('end', () => {
-            const p = { ...parsedUrl.query, ...querystring.parse(body) };
-            if (p.id && p.lat && p.lon) {
-                if (!db[p.id]) db[p.id] = {};
-                db[p.id]["p_" + Date.now()] = {
-                    device_id: p.id,
+            const params = { ...parsedUrl.query, ...querystring.parse(body) };
+            
+            // Log de depuración para ver qué llega exactamente
+            console.log(`[DEBUG] Datos recibidos: ${JSON.stringify(params)}`);
+
+            // Mapeo flexible de nombres (id/deviceid, lat/latitude, lon/longitude)
+            const id = params.id || params.deviceid;
+            const lat = params.lat || params.latitude;
+            const lon = params.lon || params.longitude;
+
+            if (id && lat && lon) {
+                refreshDB();
+                if (!db[id]) db[id] = {};
+                db[id]["p_" + Date.now()] = {
+                    device_id: id,
                     location: {
-                        coords: { latitude: parseFloat(p.lat), longitude: parseFloat(p.lon) },
+                        coords: { latitude: parseFloat(lat), longitude: parseFloat(lon) },
                         timestamp: new Date().toISOString()
                     }
                 };
                 fs.writeFileSync(DATA_FILE, JSON.stringify(db));
-                console.log(` ✅ [${new Date().toLocaleTimeString()}] Guardado: ${p.id} desde ${req.socket.remoteAddress}`);
-                res.writeHead(200, { 'Connection': 'close', 'Content-Length': '0' });
-                return res.end();
+                console.log(` ✅ GUARDADO: ${id} en [${lat}, ${lon}]`);
+                res.writeHead(200, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+                return res.end('OK');
+            } else {
+                console.log(` ⚠️ PING INVALIDO: Faltan campos (id:${id}, lat:${lat}, lon:${lon})`);
+                res.writeHead(200); // Respondemos 200 para que la app no de error, pero avisamos en log
+                return res.end('MISSING_FIELDS');
             }
-            res.writeHead(400); res.end();
         });
         return;
     }
 
-    // 3. SEGUIDOR DE ARCHIVOS (SIMPLIFICADO AL MÁXIMO)
+    // 3. SERVIDOR DE ARCHIVOS
     const filePath = pathname === '/data.json' ? DATA_FILE : path.join(__dirname, pathname);
     const ext = path.parse(pathname).ext;
     const mimes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.geojson': 'application/json' };
@@ -64,7 +79,8 @@ const server = http.createServer((req, res) => {
         }
         res.writeHead(200, { 
             'Content-Type': mimes[ext] || 'text/plain',
-            'Cache-Control': pathname === '/data.json' ? 'no-cache' : 'public, max-age=3600'
+            'Cache-Control': pathname === '/data.json' ? 'no-cache' : 'public, max-age=3600',
+            'Access-Control-Allow-Origin': '*'
         });
         res.end(data);
     });
@@ -73,5 +89,5 @@ const server = http.createServer((req, res) => {
 process.on('SIGTERM', () => process.exit(0));
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 SERVIDOR EN LINEA EN PUERTO ${PORT}`);
+    console.log(`🚀 SERVIDOR DIAGNOSTICO EN PUERTO ${PORT}`);
 });
