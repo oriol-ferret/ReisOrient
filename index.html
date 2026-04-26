@@ -404,44 +404,44 @@
         // ============================================================
         // 👑 ESTADO DE LOS REYES (Multi-Rey)
         // ============================================================
-        
+
         const kingsState = {
-            Melchor: { 
+            Melcior: {
                 name: 'Rei Melcior',
-                icon: '👑', 
+                icon: '👑',
                 color: '#d4a017', // Dorado
-                marker: null, 
-                trailPoints: [], 
+                marker: null,
+                trailPoints: [],
                 trailGroup: L.layerGroup().addTo(map),
                 currentStreet: "Ubicació desconeguda",
                 lastAddressFetch: 0
             },
-            Gaspar: { 
+            Gaspar: {
                 name: 'Rei Gaspar',
-                icon: '👑', 
+                icon: '👑',
                 color: '#ab2330', // Granate/Carmesí
-                marker: null, 
-                trailPoints: [], 
+                marker: null,
+                trailPoints: [],
                 trailGroup: L.layerGroup().addTo(map),
                 currentStreet: "Ubicació desconeguda",
                 lastAddressFetch: 0
             },
-            Baltasar: { 
+            Baltasar: {
                 name: 'Rei Baltasar',
-                icon: '👑', 
+                icon: '👑',
                 color: '#228b22', // Verde
-                marker: null, 
-                trailPoints: [], 
+                marker: null,
+                trailPoints: [],
                 trailGroup: L.layerGroup().addTo(map),
                 currentStreet: "Ubicació desconeguda",
                 lastAddressFetch: 0
             },
-            Estrella: { 
+            Estrella: {
                 name: 'Estrella d\'Orient',
-                icon: '⭐', 
+                icon: '⭐',
                 color: '#f0f8ff', // Blanco Plata
-                marker: null, 
-                trailPoints: [], 
+                marker: null,
+                trailPoints: [],
                 trailGroup: L.layerGroup().addTo(map),
                 currentStreet: "Ubicació desconeguda",
                 lastAddressFetch: 0
@@ -631,7 +631,7 @@
                 if (!initialLoadDone) setStatus('searching');
                 const url = `${CACHE_URL}?t=${Date.now()}`;
                 const response = await fetch(url);
-                
+
                 if (!response.ok) throw new Error(`Archivo no encontrado. HTTP ${response.status}`);
                 const newData = await response.json();
 
@@ -678,7 +678,7 @@
                     if (mostRecentGlobalTimestamp > 0) {
                         setStatus('connected', mostRecentGlobalTimestamp);
                     }
-                    
+
                     if (!initialLoadDone) {
                         console.log(`🛤️ Histórico Caché Local múltiple cargado.`);
                         initialLoadDone = true;

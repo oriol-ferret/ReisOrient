@@ -40,11 +40,14 @@ const server = http.createServer((req, res) => {
             console.log(`[DEBUG] Datos recibidos: ${JSON.stringify(params)}`);
 
             // Mapeo flexible de nombres (id/deviceid, lat/latitude, lon/longitude)
-            const id = params.id || params.deviceid;
+            let id = params.id || params.deviceid;
             const lat = params.lat || params.latitude;
             const lon = params.lon || params.longitude;
 
             if (id && lat && lon) {
+                // Normalizar ID: melchor -> Melchor
+                id = id.charAt(0).toUpperCase() + id.slice(1).toLowerCase();
+                
                 refreshDB();
                 if (!db[id]) db[id] = {};
                 db[id]["p_" + Date.now()] = {
