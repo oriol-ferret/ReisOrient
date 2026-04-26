@@ -1,18 +1,22 @@
+require('dotenv').config();
 const http = require('http');
 const fs = require('fs');
 const url = require('url');
 const path = require('path');
 const querystring = require('querystring');
 
-const PORT = 8080;
+const PORT = process.env.PORT || 8080;
 const DATA_DIR = process.env.DATA_PATH || path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'data.json');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-// RESET TOTAL: Empezar siempre limpio hoy
+// Carregar dades existents (persistència entre reinicis)
 let db = {};
-fs.writeFileSync(DATA_FILE, JSON.stringify(db));
+if (fs.existsSync(DATA_FILE)) {
+    try { db = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); } catch (e) { db = {}; }
+}
+console.log(`[DB] Reis en memòria: ${Object.keys(db).join(', ') || 'Cap (net)'}`);
 
 function refreshDB() {
     if (fs.existsSync(DATA_FILE)) {

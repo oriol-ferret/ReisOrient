@@ -16,6 +16,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome para el icono de refresco -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
     <style>
         /* ===== Reset & Base ===== */
@@ -134,6 +136,52 @@
         .status-dot.searching {
             background: var(--gold);
             animation: pulse-dot 1s ease-in-out infinite;
+        }
+
+        /* Botó de Refresc */
+        .refresh-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-left: 8px;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .refresh-btn:active {
+            transform: scale(0.9);
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .refresh-btn i {
+            font-size: 0.9rem;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .refreshing-icon {
+            animation: spin 0.8s linear infinite;
+        }
+
+        .status-container {
+            display: flex;
+            align-items: center;
         }
 
         @keyframes pulse-dot {
@@ -319,9 +367,14 @@
                     <div class="header__subtitle">Seguiment en temps real</div>
                 </div>
             </div>
-            <div class="status-badge" id="statusBadge">
-                <div class="status-dot" id="statusDot"></div>
-                <span id="statusText">Connectant…</span>
+            <div class="status-container">
+                <div class="status-badge" id="statusBadge">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Connectant…</span>
+                </div>
+                <button id="refreshBtn" class="refresh-btn" title="Recarregar ara">
+                    <i class="fas fa-sync-alt" id="refreshIcon"></i>
+                </button>
             </div>
         </header>
 
@@ -330,7 +383,7 @@
 
         <!-- Footer -->
         <footer class="footer">
-            ⚠️ La ubicació pot tenir un retard d'<span>~30 segons</span> a causa de la cobertura mòbil.
+            ⚠️ La ubicació pot tenir un retard d'uns <span>~30 segons</span> a causa de la cobertura mòbil.
         </footer>
     </div>
 
@@ -342,27 +395,27 @@
 
     <script>
         // ============================================================
-        // 🔧 CONFIGURACIÓN — EDITA ESTOS VALORES
+        // 🔧 CONFIGURACIÓ — EDITA AQUESTS VALORS
         // ============================================================
 
         const CONFIG = {
-            // 📍 Centro del mapa (coordenadas de la ruta oficial)
+            // 📍 Centre del mapa (coordenades de Vilafranca del Penedès)
             mapCenter: [41.3477, 1.7042],  // Vilafranca del Penedès
             mapZoom: 16,
 
-            // Campos en formato Traccar App
+            // Camps en format Traccar App
             latField: "latitude",
             lngField: "longitude",
 
-            // 🛤️ Rastro / Trail
-            trailMaxHours: 720,         // Mostrar los últimos 30 días temporalmente (para pruebas)
-            trailColor: '#f5d060',      // Color dorado
-            trailWeight: 4,             // Grosor de la línea
-            trailOpacityMax: 0.9,       // Opacidad del tramo más reciente
-            trailOpacityMin: 0.15,      // Opacidad del tramo más antiguo
-            trailSegments: 8,           // Número de segmentos de degradado
+            // 🛤️ Rastre / Trail
+            trailMaxHours: 12,          // Mostrar només les últimes 12 hores (ajust per a producció)
+            trailColor: '#f5d060',      // Color daurat (base)
+            trailWeight: 4,             // Gruix de la línia
+            trailOpacityMax: 0.9,       // Opacitat del tram més recent
+            trailOpacityMin: 0.15,      // Opacitat del tram més antic
+            trailSegments: 8,           // Nombre de segments del degradat
 
-            // 🔄 Tasa de refresco (Polling)
+            // 🔄 Taxa de refresc (Polling)
             refreshIntervalSecs: 30,
         };
 
@@ -384,7 +437,7 @@
         }).addTo(map);
 
         // ============================================================
-        // 🗺️ TRAZADO DE LA RUTA OFICIAL (GeoJSON)
+        // 🗺️ TRAÇAT DE LA RUTA OFICIAL (GeoJSON)
         // ============================================================
         fetch('ruta.geojson')
             .then(response => response.json())
@@ -447,6 +500,24 @@
                 lastAddressFetch: 0
             }
         };
+
+        // Crear capes base (buit per ara, només tenim el mapa de fons)
+        const baseMaps = {
+            "Mapa Base": map
+        };
+
+        // Crear grup de capes per al control de capes (Filtre)
+        const overlayMaps = {};
+        for (const kingId in kingsState) {
+            const king = kingsState[kingId];
+            // Afegir la capa del Rei al control de capes (marcador i rastre junts)
+            const kingLayerGroup = L.layerGroup([king.trailGroup]).addTo(map);
+            king.layerGroup = kingLayerGroup;
+            overlayMaps[king.icon + " " + king.name] = kingLayerGroup;
+        }
+
+        // Afegir el control de capes al mapa (a dalt a l'esquerra per no tapar el zoom)
+        L.control.layers(null, overlayMaps, { position: 'topleft', collapsed: true }).addTo(map);
 
         function getKingIcon(king) {
             return L.divIcon({
@@ -517,15 +588,15 @@
 
             if (!king.marker) {
                 king.marker = L.marker(latlng, { icon: getKingIcon(king) })
-                    .addTo(map)
+                    .addTo(king.layerGroup) // Afegir al LayerGroup específic del Rei en lloc del mapa general
                     .bindPopup(generatePopupHTML('Buscant carrer...'));
             } else {
                 king.marker.setLatLng(latlng);
                 king.marker.setPopupContent(generatePopupHTML(king.currentStreet));
             }
 
-            // Centrar el mapa en el primer ping de la Estrella o de Melchor (Prioridad visual inicial)
-            if (firstUpdate && (kingId === 'Estrella' || kingId === 'Melchor')) {
+            // Centrar el mapa en el primer ping de l'Estrella o de Melcior (Prioritat visual inicial)
+            if (firstUpdate && (kingId === 'Estrella' || kingId === 'Melcior')) {
                 map.setView(latlng, CONFIG.mapZoom);
                 firstUpdate = false;
             }
@@ -698,6 +769,43 @@
         setInterval(() => {
             fetchLatestData();
         }, (CONFIG.refreshIntervalSecs || 20) * 1000);
+
+        // MEJORA MÓVIL 1: Refrescar al volver a la pestaña (cuando se despierta el móvil)
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                console.log("📱 Pantalla activa: Refrescant dades...");
+                fetchLatestData();
+            }
+        });
+
+        // MEJORA MÓVIL 2: Botón manual de refresco con cooldown
+        const refreshBtn = document.getElementById('refreshBtn');
+        const refreshIcon = document.getElementById('refreshIcon');
+        let isCooldown = false;
+
+        refreshBtn.addEventListener('click', () => {
+            if (isCooldown) return;
+
+            // Bloquear botón
+            isCooldown = true;
+            refreshBtn.style.opacity = "0.4";
+            refreshBtn.style.cursor = "not-allowed";
+            refreshIcon.classList.add('refreshing-icon');
+
+            fetchLatestData().finally(() => {
+                // Quitar giro cuando termine la carga
+                setTimeout(() => {
+                    refreshIcon.classList.remove('refreshing-icon');
+                }, 600);
+
+                // Reactivar botón tras 30 segundos (cooldown)
+                setTimeout(() => {
+                    isCooldown = false;
+                    refreshBtn.style.opacity = "1";
+                    refreshBtn.style.cursor = "pointer";
+                }, 30000); // 30 segundos
+            });
+        });
 
         // Arrancamos la primera petición
         fetchLatestData();
