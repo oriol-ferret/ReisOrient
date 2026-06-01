@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="ca">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DEMO: Cavalcada de Reis — Seguiment en Directe</title>
+    <meta name="description" content="MODE DEMO: Segueix en directe la simulació dels Reis Mags. Mapa en temps real.">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👑</text></svg>">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome para el icono de refresco -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        /* ===== Reset & Base ===== */
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --gold: #d4a017;
+            --gold-light: #f5d060;
+            --burgundy: #6b1d3a;
+            --burgundy-dark: #4a0e25;
+            --cream: #fdf6e3;
+            --dark: #1a1a2e;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        html,
+        body {
+            height: 100%;
+            font-family: 'Outfit', sans-serif;
+            background: var(--dark);
+            color: var(--cream);
+            overflow: hidden;
+        }
+
+        /* ===== Layout ===== */
+        .app {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        /* ===== Demo Banner ===== */
+        .demo-banner {
+            background: linear-gradient(90deg, var(--gold), var(--gold-light));
+            color: var(--dark);
+            text-align: center;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            z-index: 10000;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .demo-banner__pulse {
+            width: 8px;
+            height: 8px;
+            background: var(--burgundy);
+            border-radius: 50%;
+            animation: pulse-dot 1s infinite;
+        }
+
+        /* ===== Header ===== */
+        .header {
+            background: linear-gradient(135deg, var(--burgundy-dark), var(--burgundy));
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: var(--shadow);
+            z-index: 1000;
+            flex-shrink: 0;
+        }
+
+        .header__title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header__icon {
+            font-size: 1.6rem;
+            animation: float 2.5s ease-in-out infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-4px);
+            }
+        }
+
+        .header h1 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, var(--gold-light), var(--gold));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 0.5px;
+        }
+
+        .header__subtitle {
+            font-size: 0.75rem;
+            color: rgba(253, 246, 227, 0.6);
+            font-weight: 400;
+        }
+
+        /* ===== Status Badge ===== */
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #888;
+            transition: background 0.3s;
+        }
+
+        .status-dot.connected {
+            background: #4ade80;
+            box-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        .status-dot.searching {
+            background: var(--gold);
+            box-shadow: 0 0 8px rgba(212, 160, 23, 0.6);
+            animation: pulse-dot 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        /* ===== Map ===== */
+        #map {
+            flex: 1;
+            z-index: 1;
+        }
+
+        /* ===== Footer ===== */
+        .footer {
+            background: linear-gradient(135deg, var(--burgundy-dark), var(--burgundy));
+            padding: 8px 20px;
+            text-align: center;
+            font-size: 0.7rem;
+            color: rgba(253, 246, 227, 0.5);
+            z-index: 1000;
+            flex-shrink: 0;
+        }
+
+        .footer span {
+            color: var(--gold);
+        }
+
+        /* ===== Leaflet marker customization ===== */
+        .king-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .king-marker__inner {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--gold-light), var(--gold));
+            border: 3px solid var(--burgundy);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            box-shadow: 0 2px 12px rgba(212, 160, 23, 0.5);
+            animation: marker-glow 3s ease-in-out infinite;
+        }
+
+        @keyframes marker-glow {
+
+            0%,
+            100% {
+                box-shadow: 0 2px 12px rgba(212, 160, 23, 0.5);
+            }
+
+            50% {
+                box-shadow: 0 2px 24px rgba(212, 160, 23, 0.8), 0 0 40px rgba(212, 160, 23, 0.3);
+            }
+        }
+
+        .king-marker__pulse {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(212, 160, 23, 0.2);
+            animation: pulse-ring 2s ease-out infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% {
+                transform: scale(0.6);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(1.4);
+                opacity: 0;
+            }
+        }
+
+        /* ===== Loading overlay ===== */
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--dark);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.6s ease;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-overlay__icon {
+            font-size: 3rem;
+            animation: float 2s ease-in-out infinite;
+        }
+
+        .loading-overlay__text {
+            margin-top: 16px;
+            font-size: 1rem;
+            color: var(--gold);
+            font-weight: 600;
+        }
+
+        .loading-overlay__spinner {
+            margin-top: 20px;
+            width: 32px;
+            height: 32px;
+            border: 3px solid rgba(212, 160, 23, 0.2);
+            border-top-color: var(--gold);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ===== Info popup on marker ===== */
+        .leaflet-popup-content-wrapper {
+            background: var(--burgundy) !important;
+            color: var(--cream) !important;
+            border-radius: 12px !important;
+            box-shadow: var(--shadow) !important;
+            font-family: 'Outfit', sans-serif !important;
+        }
+
+        .leaflet-popup-tip {
+            background: var(--burgundy) !important;
+        }
+
+        .leaflet-popup-content {
+            font-size: 0.85rem !important;
+            line-height: 1.5 !important;
+        }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 400px) {
+            .header h1 {
+                font-size: 0.95rem;
+            }
+
+            .header__subtitle {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Demo Banner -->
+    <div class="demo-banner">
+        <div class="demo-banner__pulse"></div>
+        <span>MODE DEMO ACTIVAT — Simulant cavalcada en directe de forma autònoma</span>
+    </div>
+
+    <!-- Loading screen -->
+    <div class="loading-overlay" id="loading">
+        <div class="loading-overlay__icon">👑</div>
+        <div class="loading-overlay__text">Iniciant simulació en directe per a l'Ajuntament…</div>
+        <div class="loading-overlay__spinner"></div>
+    </div>
+
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header__title">
+                <span class="header__icon">👑</span>
+                <div>
+                    <h1>Cavalcada de Reis — En Directe</h1>
+                    <div class="header__subtitle">Seguiment en temps real (DEMO)</div>
+                </div>
+            </div>
+            <div class="status-badge">
+                <div class="status-dot searching" id="statusDot"></div>
+                <span id="statusText">Buscant connexió…</span>
+            </div>
+        </header>
+
+        <!-- Map -->
+        <div id="map"></div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            ⚠️ Demostració en temps real. En producció, les dades es reben cada 30-60s directament des dels mòbils dels
+            organitzadors.
+        </footer>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script>
+        // ============================================================
+        // 🔧 CONFIGURACIÓ — EDITA AQUESTS VALORS
+        // ============================================================
+
+        const CONFIG = {
+            mapCenter: [41.5845, 2.3255],  // La Roca del Vallès 📍
+            mapZoom: 16,
+            trailWeight: 4,             // Gruix de la línia del rastre
+            refreshIntervalSecs: 2,      // Freqüència de moviment en la demo (molt més dinàmica: cada 2 segons!)
+        };
+
+        // ============================================================
+        // 🗺️ CONFIGURACIÓ DE LES RUTES OFICIALS (GEOJSON DINÀMIC)
+        // ============================================================
+
+        const KINGS_ROUTES = {
+            Estrella: { color: '#38bdf8', route: [], file: 'ruta_estrella.geojson' },
+            Melcior: { color: '#d4a017', route: [], file: 'ruta_melcior.geojson' },
+            Gaspar: { color: '#ab2330', route: [], file: 'ruta_gaspar.geojson' },
+            Baltasar: { color: '#228b22', route: [], file: 'ruta_baltasar.geojson' }
+        };
+
+        // ============================================================
+        // 🗺️ INICIALITZACIÓ DEL MAPA
+        // ============================================================
+
+        const map = L.map('map', {
+            zoomControl: false,
+        }).setView(CONFIG.mapCenter, CONFIG.mapZoom);
+
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+            maxZoom: 19,
+        }).addTo(map);
+
+        // ============================================================
+        // 👑 ESTATS DELS PERSONATGES
+        // ============================================================
+
+        let simIntervalId = null;
+        let isSimActive = false;
+
+        const kingsState = {
+            Estrella: {
+                name: "Estrella d'Orient",
+                icon: '⭐',
+                color: '#38bdf8',
+                marker: null,
+                routeIndex: 0,
+                trailPoints: [],
+                trailLine: null,
+                currentStreet: "Cercant carrer...",
+                lastAddressFetch: 0,
+                finished: false,
+                arrivalTime: null
+            },
+            Melcior: {
+                name: 'Rei Melcior',
+                icon: '👑',
+                color: '#d4a017',
+                marker: null,
+                routeIndex: 0,
+                trailPoints: [],
+                trailLine: null,
+                currentStreet: "Cercant carrer...",
+                lastAddressFetch: 0,
+                finished: false,
+                arrivalTime: null
+            },
+            Gaspar: {
+                name: 'Rei Gaspar',
+                icon: '👑',
+                color: '#ab2330',
+                marker: null,
+                routeIndex: 0,
+                trailPoints: [],
+                trailLine: null,
+                currentStreet: "Cercant carrer...",
+                lastAddressFetch: 0,
+                finished: false,
+                arrivalTime: null
+            },
+            Baltasar: {
+                name: 'Rei Baltasar',
+                icon: '👑',
+                color: '#228b22',
+                marker: null,
+                routeIndex: 0,
+                trailPoints: [],
+                trailLine: null,
+                currentStreet: "Cercant carrer...",
+                lastAddressFetch: 0,
+                finished: false,
+                arrivalTime: null
+            }
+        };
+
+        function getKingIcon(king) {
+            return L.divIcon({
+                className: 'king-marker',
+                html: `
+                    <div class="king-marker__pulse" style="background: ${king.color}33"></div>
+                    <div class="king-marker__inner" style="background: linear-gradient(135deg, ${king.color}dd, ${king.color}); box-shadow: 0 2px 12px ${king.color}80; border-color: ${king.color};">${king.icon}</div>
+                `,
+                iconSize: [60, 60],
+                iconAnchor: [30, 30],
+            });
+        }
+
+        // ============================================================
+        // 📍 NOMINATIM REVERSE GEOCIDING (Cercar carrers a La Roca)
+        // ============================================================
+
+        async function fetchStreetName(lat, lng, kingId) {
+            const now = Date.now();
+            const king = kingsState[kingId];
+            if (now - king.lastAddressFetch < 2000) return king.currentStreet;
+            king.lastAddressFetch = now;
+
+            try {
+                const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data && data.address) {
+                    const road = data.address.road || data.address.pedestrian || "";
+                    const suburb = data.address.suburb || data.address.village || data.address.town || data.address.city || "";
+                    if (road) {
+                        king.currentStreet = road + (suburb ? `, ${suburb}` : '');
+                    } else if (data.display_name) {
+                        king.currentStreet = data.display_name.split(',')[0];
+                    }
+                }
+            } catch (error) {
+                console.error(`Error buscant carrer per a ${kingId}: `, error);
+            }
+            return king.currentStreet;
+        }
+
+        // Helper per extreure els punts de [lat, lng] d'un GeoJSON
+        function extractRoutePoints(geoJsonData) {
+            let coords = [];
+            if (!geoJsonData) return coords;
+            if (geoJsonData.type === "FeatureCollection" && geoJsonData.features && geoJsonData.features.length > 0) {
+                const feature = geoJsonData.features[0];
+                if (feature.geometry && feature.geometry.coordinates) {
+                    coords = feature.geometry.coordinates;
+                }
+            } else if (geoJsonData.type === "Feature" && geoJsonData.geometry && geoJsonData.geometry.coordinates) {
+                coords = geoJsonData.geometry.coordinates;
+            } else if (geoJsonData.geometry && geoJsonData.geometry.coordinates) {
+                coords = geoJsonData.geometry.coordinates;
+            } else if (geoJsonData.coordinates) {
+                coords = geoJsonData.coordinates;
+            }
+            // GeoJSON és [lng, lat], ho girem a [lat, lng] per a Leaflet
+            return coords.map(pt => [pt[1], pt[0]]);
+        }
+
+        // Càlcul de distància Haversine entre dos punts [lat, lng] en metres
+        function getDistance(p1, p2) {
+            const R = 6371000; // radi de la Terra en metres
+            const dLat = (p2[0] - p1[0]) * Math.PI / 180;
+            const dLng = (p2[1] - p1[1]) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(p1[0] * Math.PI / 180) * Math.cos(p2[0] * Math.PI / 180) *
+                Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        // Interpolació de ruta per tenir punts espaiats uniformement cada X metres
+        function interpolateRoute(route, stepDistance) {
+            if (route.length < 2) return route;
+            const newRoute = [route[0]];
+            let lastPoint = route[0];
+
+            for (let i = 1; i < route.length; i++) {
+                const targetPoint = route[i];
+                let dist = getDistance(lastPoint, targetPoint);
+
+                while (dist >= stepDistance) {
+                    const ratio = stepDistance / dist;
+                    const nextLat = lastPoint[0] + ratio * (targetPoint[0] - lastPoint[0]);
+                    const nextLng = lastPoint[1] + ratio * (targetPoint[1] - lastPoint[1]);
+                    const newPt = [nextLat, nextLng];
+
+                    newRoute.push(newPt);
+                    lastPoint = newPt;
+                    dist = getDistance(lastPoint, targetPoint);
+                }
+            }
+
+            // Afegir l'últim punt real si no s'ha afegit ja
+            const finalPoint = route[route.length - 1];
+            if (getDistance(newRoute[newRoute.length - 1], finalPoint) > 1) {
+                newRoute.push(finalPoint);
+            }
+            return newRoute;
+        }
+
+        // ============================================================
+        // 🔄 MOTOR DE SIMULACIÓ (JavaScript)
+        // ============================================================
+
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+
+        function setStatus(state) {
+            if (!statusDot || !statusText) return;
+            statusDot.className = 'status-dot';
+            if (state === 'connected') {
+                statusDot.classList.add('connected');
+                statusText.textContent = 'En directe (Simulació)';
+            } else {
+                statusDot.classList.add('searching');
+                statusText.textContent = 'Buscant connexió…';
+            }
+        }
+
+        function advanceSimulation(isFirstRun = false) {
+            const nowTime = new Date().toLocaleTimeString('ca-ES');
+            let allFinished = true;
+
+            for (const kingId in kingsState) {
+                const king = kingsState[kingId];
+                const rData = KINGS_ROUTES[kingId];
+
+                if (!rData.route || rData.route.length === 0) continue;
+
+                // Comprovar i avançar ruta index si no és el primer cop i encara no ha acabat
+                if (!isFirstRun && !king.finished) {
+                    if (king.routeIndex < rData.route.length - 1) {
+                        king.routeIndex++;
+                    }
+
+                    // Si ha arribat a l'últim punt exactament ara
+                    if (king.routeIndex === rData.route.length - 1) {
+                        king.finished = true;
+                        king.arrivalTime = nowTime; // Desar l'hora real de finalització
+                    }
+                }
+
+                if (!king.finished) {
+                    allFinished = false; // Encara hi ha com a mínim un personatge actiu
+                }
+
+                const coords = rData.route[king.routeIndex];
+                const latlng = L.latLng(coords[0], coords[1]);
+
+                // Afegir punt al rastre només si està actiu i no és la posició de càrrega
+                if (!isFirstRun && !king.finished) {
+                    king.trailPoints.push(latlng);
+                    if (king.trailPoints.length > rData.route.length) {
+                        king.trailPoints.shift();
+                    }
+                    if (king.trailLine) {
+                        king.trailLine.setLatLngs(king.trailPoints);
+                    }
+                }
+
+                // Generar HTML del Popup segons l'estat del personatge
+                const generatePopupHTML = (streetName) => {
+                    if (king.finished) {
+                        return `
+                            <strong>${king.icon} ${king.name} (Simulació)</strong><br>
+                            📍 ${streetName} (Arribat) 🏁<br>
+                            <small style="opacity:0.7">${coords[0].toFixed(5)}, ${coords[1].toFixed(5)}</small><br>
+                            🏁 Punt final de la ruta<br>
+                            🕐 Hora d'arribada: ${king.arrivalTime}
+                        `;
+                    } else if (isFirstRun) {
+                        return `
+                            <strong>${king.icon} ${king.name} (Simulació)</strong><br>
+                            📍 Buscant senyal...<br>
+                            <small style="opacity:0.7">${coords[0].toFixed(5)}, ${coords[1].toFixed(5)}</small><br>
+                            #️⃣ Punt 1 de ${rData.route.length}<br>
+                            🕐 Estat: Connectant...
+                        `;
+                    } else {
+                        return `
+                            <strong>${king.icon} ${king.name} (Simulació)</strong><br>
+                            📍 ${streetName}<br>
+                            <small style="opacity:0.7">${coords[0].toFixed(5)}, ${coords[1].toFixed(5)}</small><br>
+                            #️⃣ Punt ${king.routeIndex + 1} de ${rData.route.length}<br>
+                            🕐 Últim ping: fa un moment (${nowTime})
+                        `;
+                    }
+                };
+
+                // Actualitzar o crear marcador
+                if (!king.marker) {
+                    king.marker = L.marker(latlng, { icon: getKingIcon(king) })
+                        .addTo(king.layerGroup)
+                        .bindPopup(generatePopupHTML(king.currentStreet));
+                } else {
+                    king.marker.setLatLng(latlng);
+                    king.marker.setPopupContent(generatePopupHTML(king.currentStreet));
+                }
+
+                // Cridar Nominatim asíncron per resoldre la adreça real si està actiu
+                if (!king.finished) {
+                    fetchStreetName(coords[0], coords[1], kingId).then(newStreet => {
+                        if (king.marker) {
+                            king.marker.setPopupContent(generatePopupHTML(newStreet));
+                        }
+                    });
+                }
+            }
+
+            // Si tots han acabat de debò, canviem l'estat del panell superior a "Buscant connexió…"
+            if (allFinished && !isFirstRun && isSimActive) {
+                isSimActive = false;
+                setStatus('searching');
+                clearInterval(simIntervalId);
+                console.log("🏁 Tots els Reis han finalitzat la cavalcada. Canviant a mode 'Buscant connexió…'");
+            }
+        }
+
+        // ============================================================
+        // 🚀 INICI DE LA DEMO (Càrrega dinàmica de GeoJSONs de La Roca)
+        // ============================================================
+
+        async function loadRoutesAndStart() {
+            const loadingText = document.querySelector('.loading-overlay__text');
+            if (loadingText) loadingText.textContent = "Carregant rutes oficials de La Roca del Vallès…";
+
+            // 1. Carregar els 4 fitxers GeoJSON
+            for (const kingId in KINGS_ROUTES) {
+                const config = KINGS_ROUTES[kingId];
+                try {
+                    const response = await fetch(config.file);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const data = await response.json();
+                    const rawRoute = extractRoutePoints(data);
+
+                    config.route = interpolateRoute(rawRoute, 18);
+
+                    if (config.route.length === 0) {
+                        console.warn(`Ruta buida per a ${kingId} en ${config.file}`);
+                        config.route = [CONFIG.mapCenter];
+                    }
+                } catch (e) {
+                    console.error(`Error carregant ruta per a ${kingId}:`, e);
+                    config.route = [CONFIG.mapCenter];
+                }
+            }
+
+            // Grup de capes per al control de capes (Filtre)
+            const overlayMaps = {};
+
+            // 2. Inicialitzar línies del trail dinàmics i dibuixar línies de fons puntejades de les rutes
+            for (const kingId in KINGS_ROUTES) {
+                const rData = KINGS_ROUTES[kingId];
+                const king = kingsState[kingId];
+
+                // Crear grup de capes per a aquest personatge (marcador, rastre i camí planificat junts)
+                king.layerGroup = L.layerGroup().addTo(map);
+
+                // Crear línia de rastre buida
+                king.trailLine = L.polyline([], { color: king.color, weight: CONFIG.trailWeight, opacity: 0.9, lineCap: 'round' }).addTo(king.layerGroup);
+
+                // Dibuixar la línia de fons discontinua per mostrar tot el recorregut previst
+                if (rData.route.length > 1) {
+                    L.polyline(rData.route, {
+                        color: rData.color,
+                        weight: 3,
+                        opacity: 0.3,
+                        dashArray: '6, 6',
+                        lineCap: 'round'
+                    }).addTo(king.layerGroup);
+                }
+
+                // Afegir la capa de control
+                overlayMaps[king.icon + " " + king.name] = king.layerGroup;
+            }
+
+            // Afegir control de capes (obert per defecte per facilitar l'ús)
+            L.control.layers(null, overlayMaps, { position: 'topleft', collapsed: false }).addTo(map);
+
+            // 3. Inicialitzar els indexs: tots comencen des de l'inici
+            kingsState.Baltasar.routeIndex = 0;
+            kingsState.Melcior.routeIndex = 0;
+            kingsState.Gaspar.routeIndex = 0;
+            kingsState.Estrella.routeIndex = 0;
+
+            // 4. Retirar pantalla de càrrega
+            const loadingOverlay = document.getElementById('loading');
+            if (loadingOverlay) loadingOverlay.classList.add('hidden');
+
+            // 5. Centrar el mapa en la localització central
+            map.setView(CONFIG.mapCenter, CONFIG.mapZoom);
+
+            // Dibuixar posició inicial en mode "Buscant senyal"
+            setStatus('searching');
+            advanceSimulation(true);
+
+            // Esperar 2 segons exactes en estat "Buscant connexió" per simular efecte real
+            setTimeout(() => {
+                setStatus('connected');
+                isSimActive = true;
+
+                // Moure per primera vegada
+                advanceSimulation(false);
+
+                // Bucle d'avançament
+                simIntervalId = setInterval(() => {
+                    advanceSimulation(false);
+                }, CONFIG.refreshIntervalSecs * 1000);
+            }, 2000);
+
+            console.log("🌟 Demo de Cavalcada en directe de La Roca del Vallès iniciada amb èxit!");
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Esperar una mica per donar millor efecte visual i engegar
+            setTimeout(() => {
+                loadRoutesAndStart();
+            }, 1000);
+        });
+    </script>
+</body>
+
+</html>

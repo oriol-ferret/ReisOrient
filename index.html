@@ -7,6 +7,7 @@
     <title>Seguiment en Directe — Cavalcada de Reis</title>
     <meta name="description"
         content="Segueix en directe la ubicació dels Reis Mags durant la Cavalcada. Mapa en temps real.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👑</text></svg>">
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -399,8 +400,8 @@
         // ============================================================
 
         const CONFIG = {
-            // 📍 Centre del mapa (coordenades de Vilafranca del Penedès)
-            mapCenter: [41.3477, 1.7042],  // Vilafranca del Penedès
+            // 📍 Centre del mapa (coordenades de La Roca del Vallès)
+            mapCenter: [41.5845, 2.3255],  // La Roca del Vallès
             mapZoom: 16,
 
             // Camps en format Traccar App
@@ -437,22 +438,32 @@
         }).addTo(map);
 
         // ============================================================
-        // 🗺️ TRAÇAT DE LA RUTA OFICIAL (GeoJSON)
+        // 🗺️ TRAÇAT DE LES RUTES OFICIALS (GeoJSON)
         // ============================================================
-        fetch('ruta.geojson')
-            .then(response => response.json())
-            .then(data => {
-                L.geoJSON(data, {
-                    style: {
-                        color: '#6b1d3a', // Granate oscuro de tu paleta (var(--burgundy)) para que resalte en mapa claro
-                        weight: 4,
-                        opacity: 0.7,
-                        dashArray: '8, 8', // Línea punteada para indicar la ruta pendiente
-                        lineCap: 'round'
-                    }
-                }).addTo(map);
-            })
-            .catch(error => console.error('Error cargando la ruta:', error));
+        const routesConfig = {
+            Melcior: { file: 'ruta_melcior.geojson', color: '#d4a017' },
+            Gaspar: { file: 'ruta_gaspar.geojson', color: '#ab2330' },
+            Baltasar: { file: 'ruta_baltasar.geojson', color: '#228b22' },
+            Estrella: { file: 'ruta_estrella.geojson', color: '#38bdf8' } // Azul cielo para mejor contraste en mapa claro
+        };
+
+        for (const kingId in routesConfig) {
+            const config = routesConfig[kingId];
+            fetch(config.file)
+                .then(response => response.json())
+                .then(data => {
+                    L.geoJSON(data, {
+                        style: {
+                            color: config.color,
+                            weight: 4,
+                            opacity: 0.6,
+                            dashArray: '6, 6', // Línea punteada para la ruta planificada
+                            lineCap: 'round'
+                        }
+                    }).addTo(map);
+                })
+                .catch(error => console.warn(`Ruta oficial no trobada per a ${kingId} (${config.file}):`, error));
+        }
 
         // ============================================================
         // 👑 ESTADO DE LOS REYES (Multi-Rey)

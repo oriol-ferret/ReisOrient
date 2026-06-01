@@ -101,7 +101,7 @@ const server = http.createServer((req, res) => {
         }
         res.writeHead(200, { 
             'Content-Type': mimes[ext] || 'text/plain',
-            'Cache-Control': pathname === '/data.json' ? 'no-cache' : 'public, max-age=3600',
+            'Cache-Control': (pathname === '/data.json' || ext === '.html') ? 'no-cache, no-store, must-revalidate' : 'public, max-age=3600',
             'Access-Control-Allow-Origin': '*'
         });
         res.end(data);

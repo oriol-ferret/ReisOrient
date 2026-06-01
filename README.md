@@ -13,7 +13,7 @@ Permet als ciutadans veure en un mapa interactiu la posició exacta de cada Rei 
 
 | Funcionalitat | Detall |
 |---|---|
-| 🗺️ **Mapa en Directe** | Visor Leaflet amb mapa CARTO Voyager, centrat a Vilafranca del Penedès |
+| 🗺️ **Mapa en Directe** | Visor Leaflet amb mapa CARTO Voyager, centrat a La Roca del Vallès |
 | 👑 **Multi-Rei** | Seguiment independent de Melcior, Gaspar, Baltasar i l'Estrella d'Orient |
 | 🛤️ **Rastre del recorregut** | Línia de color degradat que mostra el camí ja recorregut per cada Rei |
 | 📍 **Geolocalització inversa** | Mostra el nom del carrer actual de cada Rei via Nominatim/OSM |
@@ -66,7 +66,7 @@ Permet als ciutadans veure en un mapa interactiu la posició exacta de cada Rei 
 1. Instal·la **Traccar Client** des de Google Play o App Store.
 2. Configura:
    - **Identificador del dispositiu**: `Melcior`, `Gaspar`, `Baltasar` o `Estrella` (no importa majúscules).
-   - **URL del servidor**: `https://EL-TEU-DOMINI/`
+   - **URL del servidor**: `https://mountainsolutions.es/tracker/` (molt important incloure la barra `/` al final).
    - **Freqüència**: `60` segons
    - **Distància**: `0` metres
 3. **Important Android**: Desactiva l'optimització de bateria per a l'app Traccar per evitar que el sistema la tanqui en segon pla.
