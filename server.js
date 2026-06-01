@@ -40,6 +40,7 @@ const server = http.createServer((req, res) => {
     }
 
     if (pathname === '/') pathname = '/index.html';
+    if (pathname === '/demo' || pathname === '/demo/') pathname = '/demo.html';
 
     // 1. HEALTH CHECK RAPIDO
     if (pathname === '/health' || req.method === 'HEAD') {
