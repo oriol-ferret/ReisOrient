@@ -3,3 +3,7 @@ node_modules/
 data/
 *.log
 .DS_Store
+.claude/
+.agents/
+skills/
+skill-lock.json

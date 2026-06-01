@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8">
+  <title>ReisOrient Promo - Dinàmic i Real</title>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background: #1a1a2e; /* From their app */
+      font-family: 'Space Grotesk', sans-serif;
+      color: #fdf6e3;
+    }
+    
+    .scene {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background: #1a1a2e;
+      visibility: hidden;
+    }
+    #scene1 { visibility: visible; }
+
+    /* Typography */
+    h1, h2, h3 {
+      font-family: 'Bebas Neue', sans-serif;
+      margin: 0;
+      line-height: 1;
+    }
+
+    .abs-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100%;
+      text-align: center;
+    }
+
+    /* Scene 1 */
+    .s1-title {
+      font-size: 260px;
+      color: #d4a017;
+      text-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+    .s1-badge {
+      display: inline-block;
+      background: #6b1d3a;
+      color: #fdf6e3;
+      font-size: 80px;
+      padding: 10px 40px;
+      border-radius: 40px;
+      margin-top: 20px;
+      font-weight: 700;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    /* Scene 2 */
+    .s2-word {
+      font-size: 200px;
+      display: inline-block;
+      margin: 0 20px;
+      color: #fdf6e3;
+    }
+    .s2-word.highlight { color: #d4a017; }
+
+    /* Scene 3: REAL MAP */
+    .real-map-wrapper {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%) scale(2.2);
+      width: 1024px;
+      height: 768px;
+    }
+    .tile-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 256px);
+      grid-template-rows: repeat(3, 256px);
+      width: 1024px; height: 768px;
+    }
+    .tile-grid img {
+      width: 256px; height: 256px;
+      display: block;
+    }
+
+    .map-ui-overlay {
+      position: absolute;
+      bottom: 60px; left: 80px;
+      background: rgba(26, 26, 46, 0.9);
+      padding: 30px 40px;
+      border-radius: 20px;
+      border: 2px solid #6b1d3a;
+    }
+    .map-ui-title { font-size: 50px; color: #d4a017; }
+    
+    .king-dot {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      position: absolute;
+      transform: translate(-50%, -50%);
+      border: 4px solid #1a1a2e;
+      z-index: 10;
+      box-shadow: 0 0 20px currentColor;
+    }
+    #dot-m { color: #d4a017; background: #d4a017; }
+    #dot-g { color: #ab2330; background: #ab2330; }
+    #dot-b { color: #228b22; background: #228b22; }
+
+    /* Scene 4: Layers */
+    .s4-layout {
+      display: flex;
+      width: 100%; height: 100%;
+      padding: 100px; box-sizing: border-box;
+      gap: 100px;
+      align-items: center;
+    }
+    .s4-left { flex: 1; }
+    .s4-right {
+      width: 700px; height: 700px;
+      background: #0f0f1a; border-radius: 40px;
+      border: 4px solid #333; position: relative; overflow: hidden;
+    }
+    .layer-row {
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(255,255,255,0.05); padding: 20px 40px;
+      border-radius: 20px; margin-bottom: 20px;
+      border-left: 8px solid transparent;
+    }
+    .layer-row.m { border-color: #d4a017; }
+    .layer-row.g { border-color: #ab2330; }
+    .layer-row.b { border-color: #228b22; }
+    
+    .toggle {
+      width: 80px; height: 40px; border-radius: 20px; background: #333; position: relative;
+    }
+    .toggle-knob {
+      width: 32px; height: 32px; border-radius: 50%; background: #fff;
+      position: absolute; top: 4px; left: 4px;
+    }
+
+    /* Scene 5 */
+    .s5-title { font-size: 160px; color: #fdf6e3; }
+    .s5-url { font-size: 100px; color: #d4a017; margin-top: 40px; }
+
+    /* Transitions */
+    .wipe-transition {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: #d4a017; transform-origin: right; transform: scaleX(0); z-index: 100;
+    }
+    .wipe-transition-2 {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: #6b1d3a; transform-origin: bottom; transform: scaleY(0); z-index: 100;
+    }
+    .dip-layer {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: #1a1a2e; opacity: 0; z-index: 100; pointer-events: none;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div id="root" data-composition-id="main" data-width="1920" data-height="1080" data-start="0" data-duration="15">
+    
+    <!-- Scene 1: 0 - 2.5s -->
+    <div id="scene1" class="scene" style="z-index: 1;">
+      <div class="abs-center">
+        <h1 class="s1-title" id="s1-t1">CAVALCADA</h1>
+        <h1 class="s1-title" id="s1-t2">DE REIS</h1>
+        <div class="s1-badge" id="s1-badge">EN DIRECTE</div>
+      </div>
+    </div>
+
+    <div class="wipe-transition" id="trans1"></div>
+
+    <!-- Scene 2: 2.5 - 5s -->
+    <div id="scene2" class="scene" style="z-index: 2;">
+      <div class="abs-center">
+        <div id="s2-words">
+          <span class="s2-word">SAPS</span>
+          <span class="s2-word">ON</span>
+          <span class="s2-word highlight">SÓN</span>
+          <br>
+          <span class="s2-word">ARA</span>
+          <span class="s2-word highlight">MATEIX?</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 3: The Real Map 5 - 9.5s -->
+    <div id="scene3" class="scene" style="z-index: 3;">
+      <div class="real-map-wrapper" id="s3-map-wrap">
+        <div class="tile-grid">
+          <!-- Center around Vilafranca z=16 -->
+          <img crossorigin="anonymous" src="https://a.basemaps.cartocdn.com/rastertiles/voyager/16/33081/24478.png">
+          <img crossorigin="anonymous" src="https://b.basemaps.cartocdn.com/rastertiles/voyager/16/33082/24478.png">
+          <img crossorigin="anonymous" src="https://c.basemaps.cartocdn.com/rastertiles/voyager/16/33083/24478.png">
+          <img crossorigin="anonymous" src="https://a.basemaps.cartocdn.com/rastertiles/voyager/16/33084/24478.png">
+          
+          <img crossorigin="anonymous" src="https://a.basemaps.cartocdn.com/rastertiles/voyager/16/33081/24479.png">
+          <img crossorigin="anonymous" src="https://b.basemaps.cartocdn.com/rastertiles/voyager/16/33082/24479.png">
+          <img crossorigin="anonymous" src="https://c.basemaps.cartocdn.com/rastertiles/voyager/16/33083/24479.png">
+          <img crossorigin="anonymous" src="https://a.basemaps.cartocdn.com/rastertiles/voyager/16/33084/24479.png">
+          
+          <img crossorigin="anonymous" src="https://a.basemaps.cartocdn.com/rastertiles/voyager/16/33081/24480.png">
+          <img crossorigin="anonymous" src="https://b.basemaps.cartocdn.com/rastertiles/voyager/16/33082/24480.png">
+          <img crossorigin="anonymous" src="https://c.basemaps.cartocdn.com/rastertiles/voyager/16/33083/24480.png">
+          <img crossorigin="anonymous" src="https://a.basemaps.cartocdn.com/rastertiles/voyager/16/33084/24480.png">
+        </div>
+        
+        <svg viewBox="0 0 1024 768" style="position: absolute; top:0; left:0; width: 1024px; height: 768px;">
+          <!-- Trail lengths pre-calculated -->
+          <path id="svg-m" d="M 200 600 L 400 400 L 700 450" stroke="#d4a017" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="600" stroke-dashoffset="600" opacity="0.8"/>
+          <path id="svg-g" d="M 800 200 L 600 300 L 500 500" stroke="#ab2330" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="500" stroke-dashoffset="500" opacity="0.8"/>
+          <path id="svg-b" d="M 900 700 L 600 700 L 450 600" stroke="#228b22" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="500" stroke-dashoffset="500" opacity="0.8"/>
+        </svg>
+
+        <div class="king-dot" id="dot-m" style="top:600px; left:200px;"></div>
+        <div class="king-dot" id="dot-g" style="top:200px; left:800px;"></div>
+        <div class="king-dot" id="dot-b" style="top:700px; left:900px;"></div>
+      </div>
+
+      <div class="map-ui-overlay" id="s3-ui">
+        <div class="map-ui-title">VILAFRANCA DEL PENEDÈS</div>
+        <div style="font-size: 24px; color: #fdf6e3; opacity: 0.8; margin-top: 10px;">Seguiment GPS integrat</div>
+      </div>
+    </div>
+
+    <!-- Scene 4: Layers 9.5 - 12.5s -->
+    <div id="scene4" class="scene" style="z-index: 4;">
+      <div class="s4-layout">
+        <div class="s4-left" id="s4-ui">
+          <h1 style="font-size: 100px; margin-bottom: 20px;">FILTRA LES CAPES</h1>
+          <p style="font-size: 40px; color: #a0a0a0; margin-bottom: 60px;">Tria quin rei vols seguir</p>
+          
+          <div class="layer-row m" id="row-m">
+            <h2 style="font-size: 50px;">MELCIOR</h2>
+            <div class="toggle" style="background: #d4a017;" id="tg-m"><div class="toggle-knob" style="left: 44px;"></div></div>
+          </div>
+          <div class="layer-row g" id="row-g">
+            <h2 style="font-size: 50px;">GASPAR</h2>
+            <div class="toggle" style="background: #ab2330;" id="tg-g"><div class="toggle-knob" style="left: 44px;"></div></div>
+          </div>
+          <div class="layer-row b" id="row-b">
+            <h2 style="font-size: 50px;">BALTASAR</h2>
+            <div class="toggle" style="background: #228b22;" id="tg-b"><div class="toggle-knob" style="left: 44px;"></div></div>
+          </div>
+        </div>
+
+        <div class="s4-right" id="s4-minimap">
+          <!-- Mini representation of the map -->
+          <div class="tile-grid" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(1.5);">
+            <img crossorigin="anonymous" src="https://a.basemaps.cartocdn.com/rastertiles/voyager/16/33082/24479.png">
+            <img crossorigin="anonymous" src="https://b.basemaps.cartocdn.com/rastertiles/voyager/16/33083/24479.png">
+            <img crossorigin="anonymous" src="https://c.basemaps.cartocdn.com/rastertiles/voyager/16/33082/24480.png">
+            <img crossorigin="anonymous" src="https://a.basemaps.cartocdn.com/rastertiles/voyager/16/33083/24480.png">
+          </div>
+          <svg viewBox="0 0 512 512" style="position: absolute; width:100%; height:100%;" id="s4-svg">
+            <path id="mini-m" d="M 100 300 L 250 200 L 400 250" stroke="#d4a017" stroke-width="12" fill="none" stroke-linecap="round" opacity="0.8"/>
+            <path id="mini-g" d="M 400 100 L 300 150 L 200 250" stroke="#ab2330" stroke-width="12" fill="none" stroke-linecap="round" opacity="0.8"/>
+            <path id="mini-b" d="M 450 400 L 300 400 L 200 350" stroke="#228b22" stroke-width="12" fill="none" stroke-linecap="round" opacity="0.8"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 5: Outro 12.5 - 15.0s -->
+    <div id="scene5" class="scene" style="z-index: 5;">
+      <div class="abs-center">
+        <h1 class="s5-title" id="s5-t">NO ET PERDIS RES</h1>
+        <div class="s5-url" id="s5-u">REISORIENT.CAT</div>
+      </div>
+    </div>
+
+    <div class="dip-layer" id="dip"></div>
+
+  </div>
+
+  <script>
+    window.__timelines = window.__timelines || {};
+    var tl = gsap.timeline({ paused: true });
+
+    // ==== SCENE 1 (0-2.5s) ====
+    tl.from("#s1-t1", { y: 100, opacity: 0, duration: 0.6, ease: "back.out(1.5)" }, 0.2);
+    tl.from("#s1-t2", { y: 100, opacity: 0, duration: 0.6, ease: "back.out(1.5)" }, 0.4);
+    tl.from("#s1-badge", { scale: 0, opacity: 0, duration: 0.5, ease: "back.out(2)" }, 0.7);
+
+    // Transition 1 (Wipe Push) at 2.3s
+    var T1 = 2.3;
+    tl.to("#trans1", { scaleX: 1, duration: 0.3, ease: "power3.inOut" }, T1);
+    tl.to("#trans1", { scaleX: 0, transformOrigin: "left", duration: 0.3, ease: "power3.inOut" }, T1 + 0.3);
+    tl.set("#scene1", { visibility: "hidden" }, T1 + 0.3);
+    tl.set("#scene2", { visibility: "visible" }, T1 + 0.3);
+
+    // ==== SCENE 2 (2.6-5.0s) ====
+    var S2 = T1 + 0.3;
+    tl.from(".s2-word", { y: 50, opacity: 0, duration: 0.4, stagger: 0.1, ease: "power2.out" }, S2 + 0.1);
+
+    // Transition 2 (Zoom Through into Map) at 4.6s
+    var T2 = 4.6;
+    tl.to("#scene2", { scale: 3, filter: "blur(10px)", opacity: 0, duration: 0.5, ease: "power3.in" }, T2);
+    tl.set("#scene2", { visibility: "hidden" }, T2 + 0.5);
+    tl.set("#scene3", { visibility: "visible" }, T2 + 0.4);
+    tl.from("#s3-map-wrap", { scale: 1.0, opacity: 0, duration: 0.7, ease: "power3.out" }, T2 + 0.4);
+    
+    // ==== SCENE 3 (5.0-9.5s) ====
+    var S3 = T2 + 0.4;
+    tl.from("#s3-ui", { y: 40, opacity: 0, duration: 0.6, ease: "power2.out" }, S3 + 0.5);
+    
+    // Kings animating along paths
+    // Melcior (Path: 200,600 -> 400,400 -> 700,450)
+    tl.to("#svg-m", { strokeDashoffset: 0, duration: 3.5, ease: "none" }, S3 + 0.8);
+    tl.to("#dot-m", { x: 400, y: 400, duration: 1.5, ease: "none" }, S3 + 0.8);
+    tl.to("#dot-m", { x: 700, y: 450, duration: 2.0, ease: "none" }, S3 + 2.3);
+
+    // Gaspar (Path: 800,200 -> 600,300 -> 500,500)
+    tl.to("#svg-g", { strokeDashoffset: 0, duration: 3.0, ease: "none" }, S3 + 1.0);
+    tl.to("#dot-g", { x: 600, y: 300, duration: 1.5, ease: "none" }, S3 + 1.0);
+    tl.to("#dot-g", { x: 500, y: 500, duration: 1.5, ease: "none" }, S3 + 2.5);
+
+    // Baltasar (Path: 900,700 -> 600,700 -> 450,600)
+    tl.to("#svg-b", { strokeDashoffset: 0, duration: 3.5, ease: "none" }, S3 + 1.2);
+    tl.to("#dot-b", { x: 600, y: 700, duration: 2.0, ease: "none" }, S3 + 1.2);
+    tl.to("#dot-b", { x: 450, y: 600, duration: 1.5, ease: "none" }, S3 + 3.2);
+
+    // Transition 3 (Vertical Wipe) at 9.2s
+    var T3 = 9.2;
+    tl.to("#dip", { opacity: 1, duration: 0.3, ease: "power2.in" }, T3);
+    tl.set("#scene3", { visibility: "hidden" }, T3 + 0.3);
+    tl.set("#scene4", { visibility: "visible" }, T3 + 0.3);
+    tl.to("#dip", { opacity: 0, duration: 0.3, ease: "power2.out" }, T3 + 0.3);
+
+    // ==== SCENE 4 (9.5-12.5s) ====
+    var S4 = T3 + 0.3;
+    tl.from("#s4-ui", { x: -60, opacity: 0, duration: 0.6, ease: "power3.out" }, S4 + 0.1);
+    tl.from("#s4-minimap", { scale: 0.8, opacity: 0, duration: 0.6, ease: "back.out(1.5)" }, S4 + 0.3);
+
+    // Toggle interaction demo
+    var DEMO = S4 + 1.2;
+    // Turn off Gaspar
+    tl.to("#tg-g", { background: "#333", duration: 0.2 }, DEMO);
+    tl.to("#tg-g .toggle-knob", { left: 4, duration: 0.2 }, DEMO);
+    tl.to("#row-g", { opacity: 0.4, duration: 0.2 }, DEMO);
+    tl.to("#mini-g", { opacity: 0, scale: 0.8, transformOrigin: "center", duration: 0.3 }, DEMO);
+
+    // Turn off Baltasar
+    tl.to("#tg-b", { background: "#333", duration: 0.2 }, DEMO + 0.8);
+    tl.to("#tg-b .toggle-knob", { left: 4, duration: 0.2 }, DEMO + 0.8);
+    tl.to("#row-b", { opacity: 0.4, duration: 0.2 }, DEMO + 0.8);
+    tl.to("#mini-b", { opacity: 0, scale: 0.8, transformOrigin: "center", duration: 0.3 }, DEMO + 0.8);
+
+    // Transition 4 (Squeeze out) at 12.3s
+    var T4 = 12.3;
+    tl.to("#scene4", { scaleY: 0.05, opacity: 0, duration: 0.4, ease: "power3.in" }, T4);
+    tl.set("#scene4", { visibility: "hidden" }, T4 + 0.4);
+    tl.set("#scene5", { visibility: "visible" }, T4 + 0.4);
+
+    // ==== SCENE 5 (12.5-15.0s) ====
+    var S5 = T4 + 0.4;
+    tl.from("#s5-t", { y: -50, scale: 1.1, opacity: 0, duration: 0.6, ease: "power2.out" }, S5);
+    tl.from("#s5-u", { y: 50, opacity: 0, duration: 0.6, ease: "back.out(2)" }, S5 + 0.2);
+
+    // Final Fade Out
+    tl.to("#scene5", { opacity: 0, duration: 0.5, ease: "power2.in" }, 14.5);
+    tl.set("#scene5", { visibility: "hidden" }, 15.0);
+
+    window.__timelines["main"] = tl;
+  </script>
+</body>
+</html>

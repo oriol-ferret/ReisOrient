@@ -28,6 +28,17 @@ refreshDB();
 const server = http.createServer((req, res) => {
     const parsedUrl = url.parse(req.url, true);
     let pathname = parsedUrl.pathname;
+
+    // Handle /tracker subpath and redirect to ensure trailing slash for relative frontend assets
+    // (Only redirect browser visits; do not redirect Traccar client pings if they omit the trailing slash)
+    if (pathname === '/tracker' && req.method !== 'POST' && !parsedUrl.query.id) {
+        res.writeHead(301, { 'Location': '/tracker/' });
+        return res.end();
+    }
+    if (pathname.startsWith('/tracker/')) {
+        pathname = pathname.substring(8); // Strip '/tracker', keep the leading '/'
+    }
+
     if (pathname === '/') pathname = '/index.html';
 
     // 1. HEALTH CHECK RAPIDO
