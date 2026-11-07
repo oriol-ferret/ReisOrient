@@ -1,22 +1,20 @@
 FROM node:22-slim
 
-# Directorio de trabajo
 WORKDIR /app
+ENV NODE_ENV=production
 
-# Copiamos archivos de dependencias
-COPY package.json ./
+# Només dependències de producció (Leaflet i la tipografia ja són a vendor/)
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
-# Instalamos (aunque ahora no tenemos dependencias externas, es buena práctica)
-RUN npm install
-
-# Copiamos el resto del código
 COPY . .
 
-# Creamos la carpeta de datos por defecto
+# Carpeta de dades: munta-hi un volum persistent (o defineix DATA_PATH) perquè no es perdi en redesplegar
 RUN mkdir -p data
 
-# Exponemos el puerto
 EXPOSE 8080
 
-# Comando de inicio directo (más estable en EasyPanel)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
+  CMD node -e "fetch('http://localhost:'+(process.env.PORT||8080)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
 CMD ["node", "server.js"]
