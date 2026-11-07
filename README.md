@@ -166,3 +166,13 @@ node tools/warm-tiles.js --url https://el-teu-domini --maxzoom 17
 - `TILE_UPSTREAM`: URL font dels mosaics (per defecte OSM). Si canvies de proveïdor, comprova que permeti la cau.
 - **Posa un CDN (p. ex. Cloudflare gratuït) davant**: els mosaics porten `s-maxage=7 dies`, així gairebé tot el trànsit
   d'imatges (≈430 KB per visitant nou) el serveix el CDN i no el teu servidor.
+
+## Seguretat en desenvolupar (pre-commit)
+
+Un cop per clon: `npm run setup-hooks`. Abans de cada commit s'executa `tools/precommit.js`, que bloqueja `.env`, `data.json`, claus privades i secrets a les línies afegides, comprova la sintaxi de `server.js`, `tools/*.js` i dels `<script>` d'`index.html`, i passa `npm audit` quan canvien les dependències (`SKIP_AUDIT=1` per saltar-ho). Excepcionalment: `git commit --no-verify`.
+
+## Analítiques
+
+Anònimes i pròpies (`/stats?key=STATS_KEY`): visites, sessions, minuts per sessió, pic simultani, mòbil/PC, reis consultats i seguits, **cases marcades per ruta** (només el nom de la ruta, mai la ubicació), errors del navegador, visitants únics per dia (només amb cookie acceptada) i origen de les visites amb `?src=` (ex.: `https://…/tracker/?src=cartell`, útil per a QR i xarxes). Es conserven 14 dies per hores i 90 per dies. Si el navegador envia GPC/DNT no es mostra el bàner ni es desa cap cookie.
+
+Visitants únics sense cookie: el servidor fa un hash (sal aleatòria del dia, només a memòria + IP + navegador) i només compta empremtes diferents; no desa ni la IP ni el hash. Amb cookie acceptada (`ro_vid`) es compten a part els visitants que tornen en dies diferents.
