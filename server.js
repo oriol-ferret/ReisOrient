@@ -205,7 +205,8 @@ function buildCSP(rawHtml) {
         `script-src 'self' ${hashes(/<script>([\s\S]*?)<\/script>/g)}`.trim(),
         `style-src 'self' ${hashes(/<style>([\s\S]*?)<\/style>/g)}`.trim(),
         "style-src-attr 'unsafe-inline'",
-        "img-src 'self' data:",
+        // PROVA TEMPORAL: amb TILE_UNLIMITED=1 el navegador carrega els mosaics directament d'OSM (sense passar pel servidor)
+        process.env.TILE_UNLIMITED === '1' ? "img-src 'self' data: https://tile.openstreetmap.org" : "img-src 'self' data:",
         "font-src 'self'",
         "connect-src 'self'",
         "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'",

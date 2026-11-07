@@ -582,7 +582,7 @@
 
         // Mosaics: els serveix el nostre servidor (que els baixa d'OpenStreetMap un cop i els guarda en cau).
         // Així els visitants no fan cap petició externa i OSM no rep milers de peticions.
-        const baseTiles = L.tileLayer('tiles/{z}/{x}/{y}.png', {
+        const baseTiles = L.tileLayer(FREE_MAP ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png' : 'tiles/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
             minZoom: FREE_MAP ? 3 : 13, maxZoom: FREE_MAP ? 19 : 18,
         }).addTo(map);
