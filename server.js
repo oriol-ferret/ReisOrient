@@ -13,8 +13,8 @@ const querystring = require('querystring');
 const PORT = process.env.PORT || 8080;
 const DATA_DIR = process.env.DATA_PATH || path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'data.json');
-const HISTORY_MS = (Number(process.env.HISTORY_HOURS) || 12) * 3600 * 1000; // historial màxim
-const MAX_POINTS = Number(process.env.MAX_POINTS) || 6000;                  // punts màxims per rei
+const HISTORY_MS = (Number(process.env.HISTORY_HOURS) || 24) * 3600 * 1000; // historial màxim
+const MAX_POINTS = Number(process.env.MAX_POINTS) || 20000;                 // punts màxims per rei
 const MAX_STATE_POINTS = 1500;   // punts per rei enviats en la càrrega inicial (es redueix si cal)
 const MAX_KINGS = 20;            // dispositius diferents acceptats
 const MAX_BODY = 4096;           // bytes màxims d'un ping
@@ -141,6 +141,7 @@ function sendBuf(req, res, snap, type, cacheControl) {
         'Content-Type': type, 'Cache-Control': cacheControl, 'ETag': snap.etag,
         'Access-Control-Allow-Origin': '*', 'Vary': 'Accept-Encoding',
     };
+    if (snap.csp) h['Content-Security-Policy'] = snap.csp;
     if (req.headers['if-none-match'] === snap.etag) { res.writeHead(304, h); return res.end(); }
     if (snap.gz && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) {
         h['Content-Encoding'] = 'gzip';
@@ -172,8 +173,25 @@ function resolveStatic(p) {
     if (!MIMES[ext]) return null;
     const ok = /^\/index\.html$/.test(decoded)
         || /^\/[\w.-]+\.geojson$/.test(decoded)
+        || /^\/vendor\/[\w\/.-]+$/.test(decoded)
         || /^\/promo-video\/[\w\/.-]+$/.test(decoded);
     return ok ? { file: path.join(__dirname, decoded), ext } : null;
+}
+
+// CSP: només recursos propis i els mosaics d'OpenStreetMap. Els scripts/estils en línia es permeten per hash
+// (calculat del propi fitxer), així cap script injectat s'executaria.
+function buildCSP(html) {
+    const hashes = re => [...html.matchAll(re)].map(m => `'sha256-${crypto.createHash('sha256').update(m[1]).digest('base64')}'`).join(' ');
+    return [
+        "default-src 'self'",
+        `script-src 'self' ${hashes(/<script>([\s\S]*?)<\/script>/g)}`.trim(),
+        `style-src 'self' ${hashes(/<style>([\s\S]*?)<\/style>/g)}`.trim(),
+        "style-src-attr 'unsafe-inline'",
+        "img-src 'self' data: https://tile.openstreetmap.org https://api.maptiler.com",
+        "font-src 'self'",
+        "connect-src 'self'",
+        "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'",
+    ].join('; ');
 }
 
 const staticCache = new Map();
@@ -185,6 +203,7 @@ async function loadStatic(file, ext) {
         at: Date.now(), body, ext,
         gz: TEXTUAL.has(ext) && body.length > 1024 ? zlib.gzipSync(body) : null,
         etag: 'W/"' + crypto.createHash('md5').update(body).digest('hex').slice(0, 16) + '"',
+        csp: ext === '.html' ? buildCSP(body.toString('utf8')) : null,
     };
     staticCache.set(file, entry);
     return entry;
@@ -294,7 +313,7 @@ setInterval(() => {
 const esc = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function handleStats(req, res, query, pathname) {
-    const given = Buffer.from(String(query.key || ''));
+    const given = Buffer.from(String(req.headers['x-stats-key'] || query.key || ''));
     const want = Buffer.from(STATS_KEY);
     if (!STATS_KEY || given.length !== want.length || !crypto.timingSafeEqual(given, want)) { res.writeHead(404); return res.end('Not Found'); }
     const now = Date.now();
@@ -326,12 +345,97 @@ function handleStats(req, res, query, pathname) {
 }
 
 // ============================================================
+// Seguretat: cabeceres, límit de ritme per IP
+// ============================================================
+const SEC_HEADERS = {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin', // OSM demana el Referer als mosaics
+    'Permissions-Policy': 'geolocation=(self), camera=(), microphone=(), payment=()',
+};
+
+const buckets = new Map();
+function limited(key, max, windowMs = 60000) {
+    const now = Date.now();
+    let b = buckets.get(key);
+    if (!b || now > b.reset) { b = { n: 0, reset: now + windowMs }; buckets.set(key, b); }
+    return ++b.n > max;
+}
+setInterval(() => {
+    const now = Date.now();
+    for (const [k, b] of buckets) if (now > b.reset) buckets.delete(k);
+    if (buckets.size > 100000) buckets.clear();
+}, 60000);
+// Darrere d'un proxy la IP real arriba a X-Forwarded-For; sense proxy, a l'adreça del socket
+const clientIp = req => (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '?';
+
+// ============================================================
+// Geocodificació inversa (nom del carrer) amb memòria cau i cua d'1 petició/s cap a Nominatim
+// ============================================================
+const GEO_URL = process.env.GEOCODER_URL || 'https://nominatim.openstreetmap.org/reverse';
+const GEO_UA = `ReisOrient/1.0 (+https://github.com/oriol-ferret/ReisOrient${process.env.NOMINATIM_EMAIL ? '; ' + process.env.NOMINATIM_EMAIL : ''})`;
+const GEO_BBOX = (process.env.GEO_BBOX || '40.4,0.1,42.9,3.4').split(',').map(Number); // minLat,minLon,maxLat,maxLon
+const geoCache = new Map();
+const geoInflight = new Map();
+let geoChain = Promise.resolve(), geoQueued = 0, geoLastAt = 0;
+
+function geocode(lat, lon) {
+    const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    const c = geoCache.get(key);
+    if (c && Date.now() - c.at < 86400000) return Promise.resolve(c.street);
+    if (geoInflight.has(key)) return geoInflight.get(key);
+    if (geoQueued >= 15) return Promise.resolve(undefined); // saturat: el client ho reintenta
+    geoQueued++;
+    const p = geoChain = geoChain.then(async () => {
+        const wait = geoLastAt + 1100 - Date.now();
+        if (wait > 0) await new Promise(r => setTimeout(r, wait));
+        geoLastAt = Date.now();
+        try {
+            const r = await fetch(`${GEO_URL}?format=jsonv2&lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&zoom=18&addressdetails=1`,
+                { headers: { 'User-Agent': GEO_UA, 'Accept-Language': 'ca' }, signal: AbortSignal.timeout(5000) });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const d = await r.json(), a = d.address || {};
+            const road = a.road || a.pedestrian || a.footway || a.path || '';
+            const place = a.suburb || a.village || a.town || a.city || '';
+            const street = road ? road + (place ? `, ${place}` : '') : (d.display_name ? d.display_name.split(',')[0] : null);
+            geoCache.set(key, { street, at: Date.now() });
+            if (geoCache.size > 5000) geoCache.delete(geoCache.keys().next().value);
+            return street;
+        } catch (e) {
+            return undefined;
+        } finally {
+            geoQueued--;
+            geoInflight.delete(key);
+        }
+    });
+    geoInflight.set(key, p);
+    return p;
+}
+
+async function handleGeocode(req, res, query) {
+    const lat = Number(query.lat), lon = Number(query.lon);
+    const [minLat, minLon, maxLat, maxLon] = GEO_BBOX;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < minLat || lat > maxLat || lon < minLon || lon > maxLon) {
+        res.writeHead(400); return res.end();
+    }
+    if (limited('geo:' + clientIp(req), 120)) { res.writeHead(429); return res.end(); }
+    const street = await geocode(lat, lon);
+    res.writeHead(200, {
+        'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*',
+        'Cache-Control': street === undefined ? 'no-store' : 'public, max-age=3600, s-maxage=3600',
+    });
+    res.end(JSON.stringify({ street: street === undefined ? null : street }));
+}
+
+// ============================================================
 // Servidor HTTP
 // ============================================================
 async function handle(req, res) {
     const u = new URL(req.url, 'http://localhost');
     let pathname = u.pathname;
     const query = Object.fromEntries(u.searchParams);
+    for (const k in SEC_HEADERS) res.setHeader(k, SEC_HEADERS[k]);
+    if (req.headers['x-forwarded-proto'] === 'https') res.setHeader('Strict-Transport-Security', 'max-age=15552000');
 
     // /tracker (sense barra) -> /tracker/ només per a navegadors, no per als pings de Traccar
     if (pathname === '/tracker' && req.method !== 'POST' && !query.id) {
@@ -351,10 +455,16 @@ async function handle(req, res) {
     }
 
     // Analítiques
-    if (pathname === '/api/hit' && req.method === 'POST') return handleHit(req, res);
+    if (pathname === '/api/hit' && req.method === 'POST') {
+        if (limited('hit:' + clientIp(req), 120)) { res.writeHead(204); return res.end(); }
+        return handleHit(req, res);
+    }
     if (pathname === '/stats' || pathname === '/stats.json') return handleStats(req, res, query, pathname);
 
     // Pings
+    if ((req.method === 'POST' || (req.method === 'GET' && query.id)) && limited('ping:' + clientIp(req), 300)) {
+        res.writeHead(429); return res.end();
+    }
     if (req.method === 'POST' || (req.method === 'GET' && query.id)) {
         let body = '', size = 0;
         req.on('data', c => {
@@ -370,6 +480,8 @@ async function handle(req, res) {
         return;
     }
     if (req.method !== 'GET') { res.writeHead(405); return res.end(); }
+
+    if (pathname === '/api/geocode') return handleGeocode(req, res, query);
 
     // API de dades (cacheable per navegador i CDN)
     if (pathname === '/api/state') return sendBuf(req, res, snapshot('state'), 'application/json', 'public, max-age=10, s-maxage=10, stale-while-revalidate=30');
@@ -400,6 +512,11 @@ server.on('clientError', (err, socket) => socket.destroy());
 
 process.on('uncaughtException', e => console.error('[FATAL]', e));
 process.on('unhandledRejection', e => console.error('[FATAL]', e));
-for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => { flushSync(); process.exit(0); });
+for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => {
+    flushSync();
+    try { fs.writeFileSync(STATS_FILE, JSON.stringify(stats)); } catch (e) { /* res */ }
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 3000).unref(); // no esperar connexions keep-alive
+});
 
 server.listen(PORT, '0.0.0.0', () => console.log(`Servidor escoltant al port ${PORT}`));
