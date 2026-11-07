@@ -126,3 +126,43 @@ node server.js
 ## 📄 Llicència
 
 MIT — Desenvolupat amb il·lusió per fer brillar la nit de Reis. 🌟
+## Configuració i seguretat (variables d'entorn)
+
+| Variable | Per a què serveix |
+|---|---|
+| `PING_TOKEN` | **Recomanat.** Si es defineix, els pings han d'incloure `?token=...` (afegeix-ho a la URL del servidor a Traccar). Sense token, qualsevol pot enviar posicions falses. |
+| `STATS_KEY` | Activa `/stats?key=...` (o capçalera `X-Stats-Key`) amb les estadístiques anònimes. Sense clau, desactivat. |
+| `DATA_PATH` | Carpeta de dades. **Munta-hi un volum persistent**, o es perdran les posicions en redesplegar. |
+| `HISTORY_HOURS` / `MAX_POINTS` | Historial conservat (24 h) i punts màxims per rei (20000). |
+| `TRUST_PROXY_HOPS` | Quants proxies hi ha davant (1 per defecte; 2 amb CDN + proxy) per saber la IP real. |
+| `GEO_BBOX` | `minLat,minLon,maxLat,maxLon` de la zona vàlida per als pings (per defecte Catalunya). |
+| `NOMINATIM_EMAIL` | Contacte que demana la política d'OpenStreetMap per al nom dels carrers. |
+| `SERVE_PROMO=1` | Serveix `/promo-video/` (desactivat per defecte). |
+
+Altres: `/demo` mostra la simulació; `/health` per a les comprovacions de disponibilitat. El servidor descarta posicions
+impossibles (fora de zona, salts de centenars de km, precisió dolenta) i fa còpia de seguretat de `data.json`.
+
+### Test de càrrega
+
+```bash
+# 1000 visitants arribant en 10 s (pic brusc), cada un 60 s. Arrenca un servidor local de prova.
+node tools/loadtest.js --spawn --clients 1000 --ramp 10 --session 60
+```
+
+Simula pàgina, actius, historial, polling, analítica i noms de carrer, amb els mòbils enviant posicions. No cal cap
+dependència. No l'apuntis (`--url`) a producció sense avisar: genera molt trànsit.
+
+### Mosaics del mapa (cau pròpia)
+
+Els visitants no parlen mai amb OpenStreetMap: demanen `/tiles/z/x/y.png` al nostre servidor, que baixa cada mosaic
+**una sola vegada**, el guarda (memòria + `DATA_PATH/tiles`, 7 dies) i el serveix a tothom. Només s'accepta la zona de
+les rutes i els zooms 13-18. Cal mantenir l'atribució «© OpenStreetMap».
+
+```bash
+# Abans de l'esdeveniment, precalenta la cau (≈390 mosaics, ~3 min, ritme baix). Es pot repetir sense cost.
+node tools/warm-tiles.js --url https://el-teu-domini --maxzoom 17
+```
+
+- `TILE_UPSTREAM`: URL font dels mosaics (per defecte OSM). Si canvies de proveïdor, comprova que permeti la cau.
+- **Posa un CDN (p. ex. Cloudflare gratuït) davant**: els mosaics porten `s-maxage=7 dies`, així gairebé tot el trànsit
+  d'imatges (≈430 KB per visitant nou) el serveix el CDN i no el teu servidor.
