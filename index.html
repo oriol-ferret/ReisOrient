@@ -347,6 +347,14 @@
         .track-card__meta { font-size: 0.75rem; color: rgba(253, 246, 227, 0.8); font-variant-numeric: tabular-nums; }
         .track-card.is-stale { opacity: 0.75; }
 
+        .track-cta {
+            pointer-events: auto; flex: 1 1 auto; max-width: 440px; margin: 0 auto; text-align: left; font: inherit; color: var(--cream);
+            background: var(--burgundy-dark); border: 1.5px solid var(--gold-light); border-radius: 12px; padding: 12px 14px;
+            cursor: pointer; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3); display: grid; gap: 2px; -webkit-tap-highlight-color: transparent;
+        }
+        .track-cta strong { font-size: 1.05rem; }
+        .track-cta span { font-size: 0.8rem; color: rgba(253, 246, 227, 0.85); }
+        .track-cta:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 2px; }
         .dock--single .track-card { flex: 1 1 auto; max-width: 440px; margin: 0 auto; }
         .track-card__fav { width: 14px; height: 14px; color: var(--gold-light); vertical-align: -2px; margin-right: 4px; }
         .track-card__main { font-size: 1.15rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
@@ -568,21 +576,12 @@
         // Control de zoom abajo-derecha (menos intrusivo en móvil)
         L.control.zoom({ position: 'topright' }).addTo(map);
 
-        // Tiles — estilo limpio y claro (Voyager de CARTO) que resalta bien las calles
-        // CARTO ara exigeix API key. Si es defineix MAPTILER_KEY s'usa MapTiler (recomanat per
-        // a alta càrrega, clau gratuïta a maptiler.com); si no, OpenStreetMap (sense clau, però
-        // la seva política n'impedeix l'ús intensiu).
-        const MAPTILER_KEY = '';
-        const tileLayer = MAPTILER_KEY
-            ? L.tileLayer(`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`, {
-                attribution: '&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
-                maxZoom: 19, tileSize: 512, zoomOffset: -1,
-            })
-            : L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-                maxZoom: 19,
-            });
-        tileLayer.addTo(map);
+        // Mosaics: els serveix el nostre servidor (que els baixa d'OpenStreetMap un cop i els guarda en cau).
+        // Així els visitants no fan cap petició externa i OSM no rep milers de peticions.
+        L.tileLayer('tiles/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            minZoom: 13, maxZoom: 18,
+        }).addTo(map);
 
         // ============================================================
         // 🗺️ TRAÇAT DE LES RUTES OFICIALS (GeoJSON)
@@ -770,7 +769,7 @@
 
         function pruneOldPoints(kingId) {
             const king = kingsState[kingId];
-            const cutoff = Date.now() - (CONFIG.trailMaxHours * 60 * 60 * 1000);
+            const cutoff = now() - (CONFIG.trailMaxHours * 60 * 60 * 1000);
             while (king.trailPoints.length > 0 && king.trailPoints[0].timestamp < cutoff) {
                 king.trailPoints.shift();
             }
@@ -1000,7 +999,11 @@
         document.getElementById('pickCancel').addEventListener('click', stopPicking);
         drawHome();
         // Les rutes es carreguen de forma asíncrona: quan hi són, es calcula quina és la de casa teva
-        Promise.all(ROUTES.map(r => r.ready)).then(() => { routesLoaded = true; refreshAll(); if (!SIM && home) fitHomeAndKing(); });
+        Promise.all(ROUTES.map(r => r.ready)).then(() => {
+            // El mapa només cobreix l'entorn de les rutes (és el que el servidor té en cau)
+            const pts = ROUTES.flatMap(r => r.coords || []);
+            if (pts.length) { const b = L.latLngBounds(pts); map.setMaxBounds([[b.getSouth() - 0.012, b.getWest() - 0.016], [b.getNorth() + 0.012, b.getEast() + 0.016]]); }
+            routesLoaded = true; refreshAll(); if (!SIM && home) fitHomeAndKing(); });
 
         // ============================================================
         // 📏 DISTÀNCIA FINS A CASA (el rei reparteix casa per casa, a pas lent)
@@ -1114,10 +1117,11 @@
         }
 
         function renderDock() {
+            // Com a màxim una targeta: la del rei de casa teva o el que has triat. Si no n'hi ha cap, només una invitació.
             const f = followed();
-            const ids = f ? [f] : Object.keys(kingsState);
-            dock.classList.toggle('dock--single', !!f);
-            setHTMLKeepFocus(dock, ids.map(cardHTML).join(''));
+            dock.classList.toggle('dock--single', true);
+            setHTMLKeepFocus(dock, f ? cardHTML(f)
+                : '<button class="track-cta" data-open-home role="listitem"><strong>Marca on vius</strong><span>i et direm quan arriba el rei a casa teva</span></button>');
         }
 
         function kingSheetHTML(kingId) {
@@ -1194,6 +1198,7 @@
         }
 
         dock.addEventListener('click', e => {
+            if (e.target.closest('[data-open-home]')) return openHomeSheet();
             const b = e.target.closest('[data-king]');
             if (!b) return;
             focusKing(b.dataset.king);
@@ -1364,11 +1369,22 @@
         let initialLoadDone = false;
         let inFlight = false;
         let failures = 0;
+        let needsResync = false;   // el mòbil ha estat bloquejat: cal recuperar l'historial per no deixar forats al rastre
 
-        function applyKingPoints(kingId, entries) {
+        function applyKingPoints(kingId, entries, bulk) {
             const king = kingsState[kingId];
             const last = entries[entries.length - 1];
-            if (!initialLoadDone) {
+            if (initialLoadDone && bulk) {
+                // Resincronització després d'un bloqueig de pantalla: s'afegeixen els punts que s'havien perdut
+                const lastKnown = king.trailPoints.length ? king.trailPoints[king.trailPoints.length - 1] : null;
+                const fresh = entries.filter(p => !lastKnown || p.timestamp > lastKnown.timestamp);
+                if (fresh.length) {
+                    fresh.forEach(p => king.trailPoints.push(p));
+                    pruneOldPoints(kingId);
+                    drawTrail(kingId);
+                    updateMarker(kingId, last.lat, last.lng, last.timestamp);
+                }
+            } else if (!initialLoadDone) {
                 entries.forEach(p => king.trailPoints.push(p));
                 drawTrail(kingId);
                 updateMarker(kingId, last.lat, last.lng, last.timestamp);
@@ -1388,7 +1404,8 @@
                 if (!initialLoadDone) setStatus('searching');
                 const ctrl = new AbortController();
                 const timer = setTimeout(() => ctrl.abort(), 12000);
-                const response = await fetch(initialLoadDone ? 'api/latest' : 'api/state', { signal: ctrl.signal });
+                const full = !initialLoadDone || needsResync;
+                const response = await fetch(full ? 'api/state' : 'api/latest', { signal: ctrl.signal });
                 clearTimeout(timer);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const serverDate = Date.parse(response.headers.get('Date') || '');
@@ -1400,14 +1417,15 @@
                 for (const kingId in (data.kings || {})) {
                     if (!kingsState[kingId]) continue;
                     const raw = data.kings[kingId];
-                    const list = initialLoadDone ? [raw] : raw; // latest: un sol punt [ts,lat,lng]
+                    const list = full ? raw : [raw]; // latest: un sol punt [ts,lat,lng]
                     const entries = list
                         .map(a => ({ timestamp: a[0], lat: a[1], lng: a[2] }))
                         .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng) && p.timestamp >= cutoff);
                     if (!entries.length) continue;
                     mostRecent = Math.max(mostRecent, entries[entries.length - 1].timestamp);
-                    applyKingPoints(kingId, entries);
+                    applyKingPoints(kingId, entries, full);
                 }
+                needsResync = false;
                 if (mostRecent > 0) setStatus('connected', mostRecent);
                 initialLoadDone = true;
                 failures = 0;
@@ -1441,9 +1459,12 @@
         schedulePoll();
 
         // MEJORA MÓVIL 1: Refrescar al volver a la pestaña (cuando se despierta el móvil)
+        let hiddenAt = 0;
+        window.addEventListener('online', () => { needsResync = true; fetchLatestData(); });
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                console.log("📱 Pantalla activa: Refrescant dades...");
+            if (document.visibilityState === 'hidden') hiddenAt = Date.now();
+            else if (document.visibilityState === 'visible') {
+                if (hiddenAt && Date.now() - hiddenAt > 45000) needsResync = true;
                 fetchLatestData();
             }
         });
