@@ -568,7 +568,9 @@ async function getTile(z, x, y, ip) {
         stale = buf; // caducat: s'intenta renovar, però serveix si OSM falla
     } catch (e) { /* no és a disc */ }
 
-    if (limited('tile:' + ip, 90)) return { buf: stale, hit: false, limited: !stale }; // límit de baixades noves per IP
+    // Les baixades noves ja estan acotades (zona finita, 2 concurrents). Aquest límit només frena abusos evidents;
+    // ha de ser alt perquè una pantalla gran amb la cau freda en necessita desenes per nivell de zoom.
+    if (limited('tile:' + ip, 1200)) return { buf: stale, hit: false, limited: !stale };
     if (tileInflight.has(key)) return { buf: await tileInflight.get(key), hit: false };
     const p = (async () => {
         await tileSlot();
