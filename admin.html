@@ -75,6 +75,7 @@ dialog::backdrop{background:rgba(20,5,12,.5)}
     <nav class="tabs" role="tablist">
       <button role="tab" id="tabRoutes" aria-selected="true">Rutes</button>
       <button role="tab" id="tabKings" aria-selected="false">Reis</button>
+      <button role="tab" id="tabTrails" aria-selected="false">Rastres</button>
     </nav>
     <div class="sp"><a class="btn sm" href="./" target="_blank" rel="noopener">Veure el mapa</a><button class="btn sm" id="logout">Tancar sessió</button></div>
   </div></div></header>
@@ -88,6 +89,11 @@ dialog::backdrop{background:rgba(20,5,12,.5)}
       <div class="head"><h2>Reis (dispositius)</h2><div class="sp"><button class="btn pri" id="addKing">+ Afegir rei</button></div></div>
       <div class="list" id="kingList"></div>
       <p class="hint">L'identificador ha de coincidir amb el nom del dispositiu a Traccar Client (per exemple <b>Gaspar</b>). No es pot canviar després.</p>
+    </div>
+    <div id="panelTrails" hidden>
+      <div class="head"><h2>Rastres dels Reis</h2><div class="sp"><button class="btn danger" id="clearAll">Netejar tots</button></div></div>
+      <div class="list" id="trailList"></div>
+      <p class="hint">Esborra les posicions guardades (el rastre del mapa) abans de les 24 h. Els mapes dels visitants es recarreguen sols i comencen de zero. Les rutes, els reis i les estadístiques no es toquen.</p>
     </div>
   </div></main>
 </section>
@@ -181,10 +187,11 @@ dialog::backdrop{background:rgba(20,5,12,.5)}
 
   // ---------- pestanyes ----------
   function tab(which) {
-    $('panelRoutes').hidden = which !== 'routes'; $('panelKings').hidden = which !== 'kings';
-    $('tabRoutes').setAttribute('aria-selected', which === 'routes'); $('tabKings').setAttribute('aria-selected', which === 'kings');
+    $('panelRoutes').hidden = which !== 'routes'; $('panelKings').hidden = which !== 'kings'; $('panelTrails').hidden = which !== 'trails';
+    $('tabRoutes').setAttribute('aria-selected', which === 'routes'); $('tabKings').setAttribute('aria-selected', which === 'kings'); $('tabTrails').setAttribute('aria-selected', which === 'trails');
+    if (which === 'trails') loadTrails();
   }
-  $('tabRoutes').addEventListener('click', () => tab('routes')); $('tabKings').addEventListener('click', () => tab('kings'));
+  $('tabRoutes').addEventListener('click', () => tab('routes')); $('tabKings').addEventListener('click', () => tab('kings')); $('tabTrails').addEventListener('click', () => tab('trails'));
 
   // ---------- rutes ----------
   const kingName = id => { const k = cfg.kings.find(x => x.id === id); return k ? k.name : null; };
@@ -313,9 +320,25 @@ dialog::backdrop{background:rgba(20,5,12,.5)}
     } catch (err) { $('kErr').textContent = err.message; }
   });
 
+  // ---------- rastres ----------
+  async function loadTrails() {
+    const box = $('trailList'); box.textContent = '';
+    let d; try { d = await api('GET', 'trails'); } catch (e) { return; }
+    const byId = Object.fromEntries(d.kings.map(k => [k.id, k]));
+    const rows = cfg.kings.map(k => ({ ...k, ...(byId[k.id] || { points: 0, last: null }) }));
+    rows.forEach(k => {
+      const when = k.last ? new Date(k.last).toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : null;
+      box.append(el('div', { class: 'item' },
+        el('span', { class: 'sw', style: 'background:' + k.color }),
+        el('div', { class: 'grow' }, el('div', { class: 'nm' }, k.name), el('div', { class: 'meta' }, k.points ? k.points + ' punts · últim a les ' + when : 'Sense punts guardats')),
+        el('div', { class: 'acts' }, el('button', { class: 'btn sm danger', disabled: !k.points, onclick: () => confirmDel('Netejar el rastre de «' + k.name + '»', "S'esborren els " + k.points + " punts guardats d'aquest rei.", async () => { const r = await api('POST', 'trails/clear', { king: k.id }); toast(r.removed + ' punts esborrats'); loadTrails(); }, 'Netejar') }, 'Netejar'))));
+    });
+  }
+  $('clearAll').addEventListener('click', () => confirmDel('Netejar tots els rastres', "S'esborren les posicions guardades de tots els Reis. No es pot desfer.", async () => { const r = await api('POST', 'trails/clear', {}); toast(r.removed + ' punts esborrats'); loadTrails(); }, 'Netejar tot'));
+
   // ---------- confirmació ----------
   let onYes = null;
-  function confirmDel(title, text, fn) { $('cTitle').textContent = title; $('cText').textContent = text; onYes = fn; $('confirmDlg').showModal(); }
+  function confirmDel(title, text, fn, label) { $('cTitle').textContent = title; $('cText').textContent = text; $('cYes').textContent = label || 'Eliminar'; onYes = fn; $('confirmDlg').showModal(); }
   $('cNo').addEventListener('click', () => $('confirmDlg').close());
   $('cYes').addEventListener('click', async () => {
     $('confirmDlg').close();

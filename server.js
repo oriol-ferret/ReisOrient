@@ -71,6 +71,22 @@ function loadFromDisk() {
 loadFromDisk();
 console.log(`[DB] Reis en memòria: ${[...kings.keys()].join(', ') || 'cap (net)'}`);
 
+// Neteja de rastres des de /admin: un rei concret o tots. Els clients ho detecten pel canvi d'«ep» i es recarreguen.
+let trailEpoch = Date.now();
+function trailsInfo() {
+    return [...kings].map(([id, a]) => ({ id, points: a.length, last: a.length ? a[a.length - 1][0] : null }));
+}
+function clearTrails(id) {
+    const n = id ? (kings.get(id) || []).length : [...kings.values()].reduce((s, a) => s + a.length, 0);
+    if (id) kings.delete(id); else kings.clear();
+    rejects.clear();
+    trailEpoch = Math.max(Date.now(), trailEpoch + 1);
+    version++; dirty = true;
+    for (const k in snapCache) delete snapCache[k]; // la resposta següent ja surt buida (sense esperar la memòria cau de 2 s)
+    persist().catch(() => {});
+    return n;
+}
+
 function addPoint(id, ts, lat, lng) {
     let arr = kings.get(id);
     if (!arr) kings.set(id, arr = []);
@@ -125,9 +141,9 @@ const slim = ([ts, lat, lng]) => [Math.round(ts / 1000) * 1000, Math.round(lat *
 
 const builders = {
     // Historial compacte per a la càrrega inicial: { kings: { Rei: [[ts,lat,lng],...] } }
-    state: () => ({ cfgv: appConfig.get().version, kings: Object.fromEntries([...kings].map(([id, a]) => [id, downsample(a, MAX_STATE_POINTS).map(slim)])) }),
+    state: () => ({ ep: trailEpoch, cfgv: appConfig.get().version, kings: Object.fromEntries([...kings].map(([id, a]) => [id, downsample(a, MAX_STATE_POINTS).map(slim)])) }),
     // Només l'última posició de cada rei (resposta minúscula per al polling)
-    latest: () => ({ cfgv: appConfig.get().version, kings: Object.fromEntries([...kings].filter(([, a]) => a.length).map(([id, a]) => [id, slim(a[a.length - 1])])) }),
+    latest: () => ({ ep: trailEpoch, cfgv: appConfig.get().version, kings: Object.fromEntries([...kings].filter(([, a]) => a.length).map(([id, a]) => [id, slim(a[a.length - 1])])) }),
     // Format antic, per compatibilitat amb /data.json
     legacy: () => {
         const out = {};
@@ -592,7 +608,7 @@ const appConfig = configMod.create({
     },
 });
 const ADMIN_KEY = process.env.ADMIN_KEY || STATS_KEY; // si no hi ha ADMIN_KEY, es reutilitza STATS_KEY
-const adminApi = adminMod.create({ config: appConfig, adminKey: ADMIN_KEY, limited, clientIp, safeEqual });
+const adminApi = adminMod.create({ config: appConfig, adminKey: ADMIN_KEY, limited, clientIp, safeEqual, trails: { list: trailsInfo, clear: clearTrails } });
 const lon2x = (lon, z) => Math.floor((lon + 180) / 360 * 2 ** z);
 const lat2y = (lat, z) => { const r = lat * Math.PI / 180; return Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 2 ** z); };
 // PROVA TEMPORAL: TILE_UNLIMITED=1 desactiva el límit de zona i zoom (qualsevol lloc del món). Treure la variable per tornar-hi.

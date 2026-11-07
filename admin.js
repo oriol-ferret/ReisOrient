@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const SESSION_MS = 8 * 3600 * 1000;
 const MAX_BODY = 2 * 1024 * 1024;
 
-function create({ config, adminKey, limited, clientIp, safeEqual }) {
+function create({ config, adminKey, limited, clientIp, safeEqual, trails }) {
     const sessions = new Map(); // token -> caducitat
 
     const send = (res, code, obj, extra = {}) => {
@@ -62,6 +62,14 @@ function create({ config, adminKey, limited, clientIp, safeEqual }) {
                 return send(res, 200, { ok: true }, { 'Set-Cookie': 'ro_admin=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0' }), true;
             }
             if (route === 'config' && req.method === 'GET') return send(res, 200, config.get()), true;
+
+            if (route === 'trails' && req.method === 'GET') return send(res, 200, { kings: trails.list() }), true;
+            if (route === 'trails/clear' && req.method === 'POST') {
+                const body = await readJson(req);
+                const id = body.king ? String(body.king) : null;
+                if (id && !/^[A-Za-z][\w-]{0,23}$/.test(id)) throw new Error('Rei no vàlid.');
+                return send(res, 200, { removed: trails.clear(id) }), true;
+            }
 
             let m;
             if (route === 'routes' && req.method === 'POST') return send(res, 200, config.addRoute(await readJson(req))), true;

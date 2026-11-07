@@ -740,6 +740,7 @@
             } catch (e) { /* configuració per defecte */ }
             return DEFAULT_CONFIG;
         })();
+        let trailEpoch = null; // identificador de la «tanda» de rastres del servidor
         const ROUTES = APP_CONFIG.routes.map(r => ({
             id: r.id, tracker: r.tracker || undefined, name: r.name, color: r.color,
             file: r.file || (r.hasGeo ? `api/route/${r.id}.geojson?v=${APP_CONFIG.version}` : null),
@@ -1649,6 +1650,14 @@
                 const serverDate = Date.parse(response.headers.get('Date') || '');
                 if (!SIM && Number.isFinite(serverDate)) clockOffset = serverDate - Date.now();
                 const data = await response.json();
+                // Si l'administrador neteja els rastres (o el servidor es reinicia), es recarrega per partir de zero
+                if (!SIM && Number.isFinite(data.ep)) {
+                    if (trailEpoch === null) trailEpoch = data.ep;
+                    else if (data.ep !== trailEpoch) {
+                        let last = 0; try { last = Number(sessionStorage.getItem('ro_epreload')) || 0; } catch (e) { /* res */ }
+                        if (Date.now() - last > 30000) { try { sessionStorage.setItem('ro_epreload', String(Date.now())); } catch (e) { /* res */ } location.reload(); return; }
+                    }
+                }
                 // Si s'han canviat rutes o reis des de /admin, es recarrega (com a molt un cop cada 30 s)
                 if (!SIM && Number.isFinite(data.cfgv) && data.cfgv !== APP_CONFIG.version && APP_CONFIG !== DEFAULT_CONFIG) {
                     let last = 0; try { last = Number(sessionStorage.getItem('ro_cfgreload')) || 0; } catch (e) { /* res */ }
