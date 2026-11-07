@@ -180,6 +180,7 @@
 
         /* ===== Map ===== */
         #map {
+            background: #f2efe9; /* color de terra d'OSM: si falta un mosaic no es veu un forat gris */
             flex: 1;
             z-index: 1;
         }
@@ -571,6 +572,7 @@
 
         const map = L.map('map', {
             zoomControl: false,
+            maxBoundsViscosity: 1.0,   // el límit del mapa és un mur: no es pot arrossegar fora i veure el blanc
         }).setView(CONFIG.mapCenter, CONFIG.mapZoom);
 
         // Control de zoom abajo-derecha (menos intrusivo en móvil)
@@ -578,10 +580,34 @@
 
         // Mosaics: els serveix el nostre servidor (que els baixa d'OpenStreetMap un cop i els guarda en cau).
         // Així els visitants no fan cap petició externa i OSM no rep milers de peticions.
-        L.tileLayer('tiles/{z}/{x}/{y}.png', {
+        const baseTiles = L.tileLayer('tiles/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
             minZoom: 13, maxZoom: 18,
         }).addTo(map);
+        // Si un mosaic falla (xarxa fluixa, servidor ocupat), es reintenta fins a 3 cops en lloc de deixar un forat
+        baseTiles.on('tileerror', e => {
+            const t = e.tile;
+            t._retries = (t._retries || 0) + 1;
+            if (t._retries <= 3) setTimeout(() => { t.src = baseTiles.getTileUrl(e.coords) + '?r=' + t._retries; }, 700 * t._retries);
+        });
+
+        // Àrea visible permitida. El zoom mínim es calcula perquè la pantalla MAI superi aquesta àrea
+        // (en una pantalla gran cal apropar-se més): així no es veu mai el fons en blanc sense mosaics.
+        let areaBounds = null;
+        function fitMinZoom() {
+            if (!areaBounds) return;
+            const z = Math.min(18, Math.max(13, map.getBoundsZoom(areaBounds, true)));
+            map.setMinZoom(z);
+            if (map.getZoom() < z) map.setZoom(z);
+        }
+        function setMapArea(bounds) {
+            areaBounds = bounds;
+            map.setMaxBounds(bounds);
+            fitMinZoom();
+        }
+        map.on('resize', fitMinZoom);
+        // Àrea provisional (abans que carreguin les rutes), al voltant del centre configurat
+        setMapArea(L.latLngBounds([CONFIG.mapCenter[0] - 0.014, CONFIG.mapCenter[1] - 0.018], [CONFIG.mapCenter[0] + 0.014, CONFIG.mapCenter[1] + 0.018]));
 
         // ============================================================
         // 🗺️ TRAÇAT DE LES RUTES OFICIALS (GeoJSON)
@@ -1002,7 +1028,7 @@
         Promise.all(ROUTES.map(r => r.ready)).then(() => {
             // El mapa només cobreix l'entorn de les rutes (és el que el servidor té en cau)
             const pts = ROUTES.flatMap(r => r.coords || []);
-            if (pts.length) { const b = L.latLngBounds(pts); map.setMaxBounds([[b.getSouth() - 0.012, b.getWest() - 0.016], [b.getNorth() + 0.012, b.getEast() + 0.016]]); }
+            if (pts.length) { const b = L.latLngBounds(pts); setMapArea(L.latLngBounds([b.getSouth() - 0.012, b.getWest() - 0.016], [b.getNorth() + 0.012, b.getEast() + 0.016])); }
             routesLoaded = true; refreshAll(); if (!SIM && home) fitHomeAndKing(); });
 
         // ============================================================
