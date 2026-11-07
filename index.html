@@ -519,6 +519,40 @@
         .home-fab svg { width: 22px; height: 22px; }
         .home-fab.has-home { color: var(--burgundy); }
 
+        /* ===== Llistat de rutes (minimalista, a dalt a la dreta) ===== */
+        .routes-ctl { position: relative; font-family: 'Outfit', sans-serif; }
+        .routes-btn {
+            width: 40px; height: 40px; border: 0; border-radius: 8px; background: #fff; color: #5f6368; cursor: pointer;
+            display: grid; place-items: center; box-shadow: 0 1px 3px rgba(60, 64, 67, 0.3), 0 2px 6px 2px rgba(60, 64, 67, 0.12);
+        }
+        .routes-btn:hover { background: #f1f3f4; }
+        .routes-btn[aria-expanded="true"] { color: var(--burgundy); background: #fbeef2; }
+        .routes-btn:focus-visible { outline: 2px solid var(--burgundy); outline-offset: 2px; }
+        .routes-btn svg { width: 22px; height: 22px; }
+        .routes-panel {
+            position: absolute; top: 0; right: 48px; width: 168px; max-height: min(52vh, 330px); overflow-y: auto;
+            background: #fff; color: #202124; border-radius: 10px; padding: 2px 0 4px; font-size: 0.88rem;
+            box-shadow: 0 1px 3px rgba(60, 64, 67, 0.3), 0 4px 12px 2px rgba(60, 64, 67, 0.15);
+        }
+        .routes-panel[hidden] { display: none; }
+        .rt-head { display: flex; gap: 2px; padding: 2px 4px; border-bottom: 1px solid #ececec; }
+        .rt-head button, .rt-note button {
+            font: inherit; font-weight: 600; font-size: 0.8rem; color: var(--burgundy); background: none; border: 0; border-radius: 6px;
+            min-height: 30px; padding: 0 8px; cursor: pointer;
+        }
+        .rt-head button:hover, .rt-note button:hover { background: #f8e8ee; }
+        .rt-head button:focus-visible, .rt-note button:focus-visible, .rt input:focus-visible { outline: 2px solid var(--burgundy); outline-offset: 1px; }
+        .rt-note { padding: 4px 12px 2px; font-size: 0.74rem; color: #5f6368; line-height: 1.3; }
+        .rt-note button { min-height: 28px; padding: 0 2px; font-size: 0.74rem; text-decoration: underline; }
+        .rt { display: flex; align-items: center; gap: 9px; min-height: 31px; padding: 0 12px; cursor: pointer; }
+        .rt:hover { background: #f1f3f4; }
+        .rt input { width: 16px; height: 16px; accent-color: var(--burgundy); flex-shrink: 0; margin: 0; }
+        .rt__sw { width: 10px; height: 10px; border-radius: 50%; background: var(--c); flex-shrink: 0; }
+        .rt__name { font-weight: 500; white-space: nowrap; }
+        .rt.is-dim { opacity: 0.45; cursor: not-allowed; }
+        /* Zoom i «Casa meva» a baix a la dreta, per sobre de la targeta de seguiment */
+        .leaflet-bottom.leaflet-right .leaflet-control-zoom { margin-bottom: var(--dock-h, 10px); }
+
         /* ===== Responsive ===== */
         @media (max-width: 400px) {
             .header h1 {
@@ -641,7 +675,7 @@
         }).setView(CONFIG.mapCenter, CONFIG.mapZoom);
 
         // Control de zoom abajo-derecha (menos intrusivo en móvil)
-        L.control.zoom({ position: 'topright' }).addTo(map);
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
 
         // Mosaics: els serveix el nostre servidor (que els baixa d'OpenStreetMap un cop i els guarda en cau).
         // Així els visitants no fan cap petició externa i OSM no rep milers de peticions.
@@ -693,6 +727,8 @@
         ];
 
         // Capes de rutes (una per ruta) — s'afegeixen al control de capes més avall
+        const routeOn = {}; // casella de cada ruta al llistat (true = visible)
+        ROUTES.forEach(r => { routeOn[r.id] = true; });
         const routeLayers = {};
         ROUTES.forEach(route => {
             const layer = L.layerGroup().addTo(map);
@@ -774,10 +810,56 @@
             overlayMaps[king.name] = kingLayerGroup;
         }
 
-        // Afegir el control de capes al mapa (a dalt a l'esquerra per no tapar el zoom)
-        L.control.layers(null, { ...routeLayers, ...overlayMaps }, { position: 'topright', collapsed: true }).addTo(map);
-        // El botó «Casa meva» viu a la columna de controls de la dreta (com Google Maps)
-        const homeCtl = L.control({ position: 'topright' });
+        // Llistat de rutes (a dalt a la dreta): una casella per ruta que mostra/amaga la traça i el seu rei; «Totes» / «Cap» d'un cop.
+        const routesCtl = L.control({ position: 'topright' });
+        routesCtl.onAdd = () => {
+            const box = L.DomUtil.create('div', 'routes-ctl');
+            box.innerHTML = '<button type="button" class="routes-btn" id="routesBtn" aria-label="Rutes" title="Rutes" aria-expanded="false" aria-controls="routesPanel">'
+                + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 3 8l9 5 9-5z"/><path d="m3 12.5 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg></button>'
+                + '<div class="routes-panel" id="routesPanel" hidden></div>';
+            L.DomEvent.disableClickPropagation(box);
+            L.DomEvent.disableScrollPropagation(box);
+            return box;
+        };
+        routesCtl.addTo(map);
+        const routesBtn = document.getElementById('routesBtn');
+        const routesPanel = document.getElementById('routesPanel');
+        function renderRoutesPanel() {
+            const mine = onlyMine();
+            const rows = ROUTES.map(r => {
+                const k = r.tracker && kingsState[r.tracker];
+                const dim = mine && r.tracker !== homeKing;
+                return `<label class="rt${dim ? ' is-dim' : ''}"${k ? ` title="${esc(k.name)}"` : ''}><input type="checkbox" data-route="${r.id}"${routeOn[r.id] && !dim ? ' checked' : ''}${dim ? ' disabled' : ''}>`
+                    + `<span class="rt__sw" style="--c:${r.color}"></span><span class="rt__name">${esc(r.name)}</span></label>`;
+            }).join('');
+            setHTMLKeepFocus(routesPanel, `<div class="rt-head"><button type="button" data-rt-all>Totes</button><button type="button" data-rt-none>Cap</button></div>`
+                
+                + `<div class="rt-list">${rows}</div>`);
+        }
+        function setRoutesOpen(open) {
+            routesPanel.hidden = !open;
+            routesBtn.setAttribute('aria-expanded', String(open));
+            if (open) renderRoutesPanel();
+        }
+        routesBtn.addEventListener('click', () => setRoutesOpen(routesPanel.hidden));
+        routesPanel.addEventListener('click', e => {
+            if (e.target.closest('[data-rt-showall]')) { setShowAll(true); renderRoutesPanel(); return; }
+            const all = e.target.closest('[data-rt-all]'), none = e.target.closest('[data-rt-none]');
+            if (!all && !none) return;
+            ROUTES.forEach(r => { routeOn[r.id] = !!all; });
+            if (all && onlyMine()) setShowAll(true); else applyVisibility();
+            renderRoutesPanel();
+        });
+        routesPanel.addEventListener('change', e => {
+            const cb = e.target.closest('[data-route]');
+            if (!cb) return;
+            routeOn[cb.dataset.route] = cb.checked;
+            applyVisibility();
+        });
+        document.addEventListener('pointerdown', e => { if (!routesPanel.hidden && !e.target.closest('.routes-ctl')) setRoutesOpen(false); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && !routesPanel.hidden) { setRoutesOpen(false); routesBtn.focus(); } });
+        // El botó «Casa meva» va a baix a la dreta, damunt del zoom (com Google Maps)
+        const homeCtl = L.control({ position: 'bottomright' });
         homeCtl.onAdd = () => { const b = document.getElementById('homeFab'); L.DomEvent.disableClickPropagation(b); return b; };
         homeCtl.addTo(map);
 
@@ -1024,13 +1106,15 @@
         function applyVisibility() {
             const mine = onlyMine();
             for (const id in kingsState) {
-                const k = kingsState[id], vis = !mine || id === homeKing;
+                const k = kingsState[id], kr = ROUTES.find(x => x.tracker === id);
+                const vis = (!mine || id === homeKing) && (!kr || routeOn[kr.id]);
                 [k.layerGroup, k.trailGroup].forEach(l => { if (vis) map.addLayer(l); else map.removeLayer(l); });
             }
             ROUTES.forEach(r => {
-                const l = routeLayers[r.name], vis = !mine || r.tracker === homeKing;
+                const l = routeLayers[r.name], vis = (!mine || r.tracker === homeKing) && routeOn[r.id];
                 if (vis) map.addLayer(l); else map.removeLayer(l);
             });
+            if (!routesPanel.hidden) renderRoutesPanel();
         }
 
         function refreshAll() {
@@ -1374,6 +1458,8 @@
         }, 1000);
         setInterval(renderKing, 15000);
         renderDock();
+        // Els botons de baix a la dreta pugen per sobre de la targeta de seguiment (la seva alçada canvia)
+        if ('ResizeObserver' in window) new ResizeObserver(() => document.querySelector('.stage').style.setProperty('--dock-h', (dock.offsetHeight + 14) + 'px')).observe(dock);
 
         // ============================================================
         // 🎬 SIMULACIÓ (?sim=1): reis recorrent la seva ruta, sense dades reals
