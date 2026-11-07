@@ -329,49 +329,56 @@
             flex: 0 0 min(232px, 72vw);
             text-align: left;
             font: inherit;
-            color: var(--cream);
-            background: var(--burgundy-dark);
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #202124;
+            background: #fff;
+            border: 1px solid #e3e3e3;
             border-top: 3px solid var(--c, var(--gold));
             border-radius: 10px;
             padding: 10px 12px 10px;
             cursor: pointer;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 1px 3px rgba(60,64,67,.3), 0 4px 8px 3px rgba(60,64,67,.15);
             display: grid;
             gap: 4px;
             -webkit-tap-highlight-color: transparent;
         }
-        .track-card:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 2px; }
+        .track-card:focus-visible { outline: 2px solid var(--burgundy); outline-offset: 2px; }
         .track-card__name { font-weight: 700; font-size: 0.85rem; display: flex; justify-content: space-between; gap: 8px; }
-        .track-card__age { font-weight: 400; font-size: 0.72rem; color: rgba(253, 246, 227, 0.75); font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .track-card__age { font-weight: 400; font-size: 0.72rem; color: #5f6368; font-variant-numeric: tabular-nums; white-space: nowrap; }
         .track-card__street { font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .track-card__meta { font-size: 0.75rem; color: rgba(253, 246, 227, 0.8); font-variant-numeric: tabular-nums; }
+        .track-card__meta { font-size: 0.75rem; color: #5f6368; font-variant-numeric: tabular-nums; }
         .track-card.is-stale { opacity: 0.75; }
 
         .track-cta {
-            pointer-events: auto; flex: 1 1 auto; max-width: 440px; margin: 0 auto; text-align: left; font: inherit; color: var(--cream);
-            background: var(--burgundy-dark); border: 1.5px solid var(--gold-light); border-radius: 12px; padding: 12px 14px;
-            cursor: pointer; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3); display: grid; gap: 2px; -webkit-tap-highlight-color: transparent;
+            pointer-events: auto; flex: 1 1 auto; max-width: 440px; margin: 0 auto; text-align: left; font: inherit; color: #202124;
+            background: #fff; border: 1.5px solid #dadce0; border-radius: 12px; padding: 12px 14px;
+            cursor: pointer; box-shadow: 0 1px 3px rgba(60,64,67,.3), 0 4px 8px 3px rgba(60,64,67,.15); display: grid; gap: 2px; -webkit-tap-highlight-color: transparent;
         }
         .track-cta strong { font-size: 1.05rem; }
-        .track-cta span { font-size: 0.8rem; color: rgba(253, 246, 227, 0.85); }
-        .track-cta:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 2px; }
-        .dock--single .track-card { flex: 1 1 auto; max-width: 440px; margin: 0 auto; }
-        .track-card__fav { width: 14px; height: 14px; color: var(--gold-light); vertical-align: -2px; margin-right: 4px; }
-        .track-card__main { font-size: 1.15rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
-        .track-card__main small { font-size: 0.78rem; font-weight: 400; color: rgba(253, 246, 227, 0.85); }
-
-        .home-fab {
-            position: absolute; z-index: 800; top: 62px; left: 10px;
-            width: 44px; height: 44px; border-radius: 8px;
-            background: #fff; color: var(--burgundy-dark);
-            border: 2px solid rgba(0, 0, 0, 0.25); cursor: pointer;
-            display: grid; place-items: center;
+        .track-cta span { font-size: 0.8rem; color: #5f6368; }
+        .track-cta:focus-visible { outline: 2px solid var(--burgundy); outline-offset: 2px; }
+        .dock-item { position: relative; pointer-events: auto; flex: 1 1 auto; max-width: 440px; margin: 0 auto; }
+        .dock-item > .track-card, .dock-item > .track-cta { width: 100%; max-width: none; margin: 0; }
+        .dock-item > .track-cta, .dock-item > .track-card { padding-right: 44px; }
+        .dock-min {
+            position: absolute; top: 4px; right: 4px; width: 36px; height: 36px; border: 0; border-radius: 50%;
+            background: transparent; color: #5f6368; display: grid; place-items: center; cursor: pointer; -webkit-tap-highlight-color: transparent;
         }
-        .home-fab svg { width: 22px; height: 22px; }
-        .home-fab.has-home { background: var(--gold); color: #2a1500; }
-        .home-fab:focus-visible { outline: 2px solid var(--burgundy); outline-offset: 2px; }
+        .dock-min:hover { background: #f1f3f4; }
+        .dock-min:focus-visible, .dock-pill:focus-visible { outline: 2px solid var(--burgundy); outline-offset: 2px; }
+        .dock-min svg { width: 20px; height: 20px; }
+        .dock-pill {
+            pointer-events: auto; margin: 0 auto 0 0; min-height: 44px; padding: 0 16px 0 10px; border: 0; border-radius: 22px;
+            background: #fff; color: #202124; font: inherit; font-weight: 600; font-size: 0.9rem; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(60, 64, 67, 0.3), 0 4px 8px 3px rgba(60, 64, 67, 0.15);
+            -webkit-tap-highlight-color: transparent;
+        }
+        .dock-pill__up { width: 20px; height: 20px; color: var(--burgundy); }
+        .dock--single .track-card { flex: 1 1 auto; max-width: 440px; margin: 0 auto; }
+        .track-card__fav { width: 14px; height: 14px; color: var(--burgundy); vertical-align: -2px; margin-right: 4px; }
+        .track-card__main { font-size: 1.15rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+        .track-card__main small { font-size: 0.78rem; font-weight: 400; color: #5f6368; }
 
+                                
         .home-marker {
             width: 36px; height: 36px; border-radius: 50%;
             background: var(--cream); color: var(--burgundy-dark);
@@ -391,39 +398,59 @@
         .pickbar button { font: inherit; font-weight: 700; min-height: 40px; padding: 0 14px; border-radius: 8px; background: transparent; color: var(--cream); border: 1.5px solid var(--gold-light); cursor: pointer; }
         body.is-picking #map { cursor: crosshair; }
 
-        .sheet__alt { background: transparent; color: var(--cream); border: 1.5px solid var(--gold-light); border-radius: 10px; padding: 11px; font: inherit; font-weight: 700; cursor: pointer; }
-        .sheet__alt:focus-visible, .pickbar button:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 2px; }
+        .sheet__alt { background: transparent; color: var(--burgundy); border: 1.5px solid #dadce0; border-radius: 10px; padding: 11px; font: inherit; font-weight: 700; cursor: pointer; }
+        .sheet__alt:focus-visible, .pickbar button:focus-visible { outline: 2px solid var(--burgundy); outline-offset: 2px; }
         .sheet__big { font-size: 1.6rem; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
-        .sheet__note { font-size: 0.85rem; color: rgba(253, 246, 227, 0.85); }
+        .sheet__note { font-size: 0.85rem; color: #5f6368; }
 
         /* ===== Modal de detall ===== */
+        /* Panell inferior no modal (com Google Maps): el mapa continua utilitzable i es pot minimitzar */
         .sheet {
             border: 0;
             padding: 0;
-            background: var(--burgundy-dark);
-            color: var(--cream);
+            background: #fff;
+            color: #202124;
+            position: fixed; z-index: 1400; inset: auto 0 0 0;
             width: min(440px, 100vw);
             max-width: 100vw;
-            margin: auto auto 0;
+            margin: 0 auto;
             border-radius: 16px 16px 0 0;
-            box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.35);
+            box-shadow: 0 -2px 10px rgba(60,64,67,.3);
+            max-height: min(78vh, 640px); overflow-y: auto; overscroll-behavior: contain;
         }
-        @media (min-width: 640px) { .sheet { margin: auto; border-radius: 16px; } }
-        .sheet::backdrop { background: rgba(20, 5, 12, 0.55); }
+        @media (min-width: 640px) { .sheet { inset: auto auto 12px 12px; margin: 0; border-radius: 16px; } }
         .sheet[open] { animation: sheet-in 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
         @keyframes sheet-in { from { transform: translateY(24px); opacity: 0; } }
-        .sheet__body { padding: 18px 18px 20px; display: grid; gap: 14px; }
+        .sheet__grab {
+            display: block; width: 100%; height: 28px; padding: 0; border: 0; background: transparent; cursor: grab;
+            touch-action: none; position: relative; -webkit-tap-highlight-color: transparent;
+        }
+        .sheet__grab::before {
+            content: ''; position: absolute; left: 50%; top: 10px; width: 40px; height: 5px; margin-left: -20px;
+            border-radius: 3px; background: #c4c7c5; transition: background 0.15s;
+        }
+        .sheet__grab:hover::before { background: #80868b; }
+        .sheet__grab:focus-visible { outline: 2px solid var(--burgundy); outline-offset: -2px; border-radius: 16px 16px 0 0; }
+        .sheet__body { padding: 0 18px 20px; display: grid; gap: 14px; }
+        .sheet.is-min .sheet__body { gap: 4px; padding-bottom: 14px; }
+        .sheet__peek { display: none; font-size: 0.88rem; color: #5f6368; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sheet.is-min .sheet__peek { display: block; }
+        .sheet__fold { display: grid; grid-template-rows: 1fr; transition: grid-template-rows 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
+        .sheet__foldin { min-height: 0; overflow: hidden; display: grid; gap: 14px; }
+        .sheet.is-min .sheet__fold { grid-template-rows: 0fr; }
+        .sheet.is-min .sheet__foldin { visibility: hidden; }
+        @media (prefers-reduced-motion: reduce) { .sheet[open] { animation: none; } .sheet__fold { transition: none; } }
         .sheet__head { display: flex; align-items: center; gap: 10px; }
         .sheet__swatch { width: 14px; height: 14px; border-radius: 50%; background: var(--c); flex-shrink: 0; }
         .sheet h2 { font-size: 1.15rem; flex: 1; }
-        .sheet__close { background: rgba(255, 255, 255, 0.1); border: 0; color: var(--cream); width: 40px; height: 40px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; }
-        .sheet__close:focus-visible, .sheet__go:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 2px; }
+        .sheet__close { background: #f1f3f4; border: 0; color: #202124; width: 40px; height: 40px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; }
+        .sheet__close:focus-visible, .sheet__go:focus-visible { outline: 2px solid var(--burgundy); outline-offset: 2px; }
         .sheet__where { font-size: 1.3rem; font-weight: 700; line-height: 1.2; text-wrap: balance; }
-        .sheet__from { font-size: 0.85rem; color: rgba(253, 246, 227, 0.8); margin-top: 4px; }
+        .sheet__from { font-size: 0.85rem; color: #5f6368; margin-top: 4px; }
         .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
-        .facts dt { font-size: 0.72rem; color: rgba(253, 246, 227, 0.75); }
+        .facts dt { font-size: 0.72rem; color: #5f6368; }
         .facts dd { font-size: 1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-        .sheet__go { background: var(--gold); color: #2a1500; border: 0; border-radius: 10px; padding: 12px; font: inherit; font-weight: 700; cursor: pointer; }
+        .sheet__go { background: var(--burgundy); color: #fff; border: 0; border-radius: 10px; padding: 12px; font: inherit; font-weight: 700; cursor: pointer; }
 
         .leaflet-tooltip.route-tip { font-family: 'Outfit', sans-serif; }
 
@@ -448,6 +475,8 @@
         }
         .consent.is-open { display: grid; }
         .consent h2 { font-size: 0.95rem; }
+        .consent__state { font-size: 0.8rem; font-weight: 600; }
+        .consent__state:empty { display: none; }
         .consent details { color: rgba(253, 246, 227, 0.85); font-size: 0.8rem; }
         .consent summary { cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
         .consent__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -457,6 +486,38 @@
         }
         .consent__actions button:focus-visible, .consent summary:focus-visible, .footer__link:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 2px; }
         .footer__link { background: none; border: 0; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; margin-left: 8px; }
+
+        /* ===== Estil tipus Google Maps: barra superior flotant i controls a la dreta ===== */
+        .app { position: relative; }
+        .header {
+            position: absolute; top: 10px; left: 10px; right: 10px; z-index: 1100;
+            background: #fff; border-radius: 24px; padding: 6px 6px 6px 14px;
+            box-shadow: 0 1px 3px rgba(60, 64, 67, 0.3), 0 2px 8px 2px rgba(60, 64, 67, 0.15);
+        }
+        .header__icon { color: var(--burgundy); width: 26px; height: 26px; }
+        .header h1 { color: #202124; font-size: 1rem; letter-spacing: 0; }
+        .header__subtitle { color: #5f6368; }
+        .status-badge { background: #f1f3f4; color: #3c4043; }
+        .refresh-btn { background: transparent; border: 0; color: #5f6368; margin-left: 4px; }
+        .refresh-btn:active { background: #f1f3f4; }
+        .refresh-btn:focus-visible, .home-fab:focus-visible { outline: 2px solid var(--burgundy); outline-offset: 2px; }
+        .pickbar button:focus-visible { outline-color: var(--gold-light); }
+        .leaflet-top.leaflet-right { margin-top: 62px; }
+        .leaflet-right .leaflet-control { margin-right: 10px; margin-top: 10px; }
+        .leaflet-bar, .leaflet-control-layers {
+            border: 0 !important; border-radius: 8px !important; overflow: hidden;
+            box-shadow: 0 1px 3px rgba(60, 64, 67, 0.3), 0 2px 6px 2px rgba(60, 64, 67, 0.12) !important;
+        }
+        .leaflet-bar a { width: 40px; height: 40px; line-height: 40px; color: #5f6368; background: #fff; font-size: 20px; border-bottom-color: #e3e3e3; }
+        .leaflet-bar a:hover { background: #f1f3f4; color: #202124; }
+        .leaflet-control-layers-toggle { width: 40px; height: 40px; background-size: 22px; }
+        .home-fab {
+            width: 40px; height: 40px; border-radius: 8px; border: 0; background: #fff; color: #5f6368; cursor: pointer;
+            display: grid; place-items: center; box-shadow: 0 1px 3px rgba(60, 64, 67, 0.3), 0 2px 6px 2px rgba(60, 64, 67, 0.12);
+        }
+        .home-fab:hover { background: #f1f3f4; }
+        .home-fab svg { width: 22px; height: 22px; }
+        .home-fab.has-home { color: var(--burgundy); }
 
         /* ===== Responsive ===== */
         @media (max-width: 400px) {
@@ -518,15 +579,17 @@
     <div class="pickbar" id="pickbar" role="status"><span>Toca el mapa on vius</span><button type="button" id="pickCancel">Cancel·lar</button></div>
 
     <dialog class="sheet" id="sheet" aria-labelledby="sheetTitle">
+        <button type="button" class="sheet__grab" id="sheetGrab" aria-expanded="true" aria-label="Minimitzar el panell"></button>
         <div class="sheet__body" id="sheetBody"></div>
     </dialog>
 
     <div class="consent" id="consent" role="dialog" aria-labelledby="consentTitle">
         <h2 id="consentTitle">Cookies i estadístiques</h2>
-        <p>Comptem les visites de forma anònima, sense dades personals ni IP. Si acceptes, desem una cookie pròpia per saber quantes persones diferents ens visiten. Si la rebutges, el mapa funciona igual.</p>
+        <p class="consent__state" id="consentState" role="status"></p>
+        <p>Comptem les visites de forma anònima i sense cookies: no desem la teva IP ni cap dada personal. Si acceptes, desem a més una cookie pròpia perquè puguem saber si ets la mateixa persona en dies diferents. Si la rebutges, el mapa funciona igual.</p>
         <details>
             <summary>Més informació</summary>
-            <p>Mesurem pàgines vistes, persones connectades alhora, tipus de dispositiu (mòbil o ordinador) i quin rei es consulta. No fem servir publicitat ni compartim res amb tercers. Cookies: <b>ro_vid</b> (identificador aleatori, 13 mesos, només si acceptes) i <b>ro_consent</b> (recorda la teva elecció, 13 mesos). La ubicació de casa teva i el rei que segueixes es desen només al teu dispositiu i no s'envien enlloc. Pots canviar-ho a «Privadesa», al peu de pàgina.</p>
+            <p>Mesurem pàgines vistes, persones connectades alhora, tipus de dispositiu (mòbil o ordinador) quin rei es consulta, quina ruta tens a casa (mai la ubicació exacta) i si hi ha errors tècnics. No fem servir publicitat ni compartim res amb tercers. Cookies: <b>ro_vid</b> (identificador aleatori, 13 mesos, només si acceptes) i <b>ro_consent</b> (recorda la teva elecció, 13 mesos). La ubicació de casa teva i el rei que segueixes es desen només al teu dispositiu i no s'envien enlloc. Pots canviar-ho a «Privadesa», al peu de pàgina.</p>
         </details>
         <div class="consent__actions">
             <button type="button" data-consent="0">Rebutjar</button>
@@ -712,7 +775,11 @@
         }
 
         // Afegir el control de capes al mapa (a dalt a l'esquerra per no tapar el zoom)
-        L.control.layers(null, { ...routeLayers, ...overlayMaps }, { position: 'topleft', collapsed: true }).addTo(map);
+        L.control.layers(null, { ...routeLayers, ...overlayMaps }, { position: 'topright', collapsed: true }).addTo(map);
+        // El botó «Casa meva» viu a la columna de controls de la dreta (com Google Maps)
+        const homeCtl = L.control({ position: 'topright' });
+        homeCtl.onAdd = () => { const b = document.getElementById('homeFab'); L.DomEvent.disableClickPropagation(b); return b; };
+        homeCtl.addTo(map);
 
         function getKingIcon(king) {
             return L.divIcon({
@@ -995,6 +1062,7 @@
             ROUTES.forEach(r => { r.hp = null; });
             drawHome();
             refreshAll();
+            if (persist) track('home', { r: homeKing || 'cap' }); // només la ruta (demanda per ruta), mai la ubicació
         }
 
         function clearHome() {
@@ -1006,6 +1074,7 @@
 
         function setFavorite(id) {
             favorite = id;
+            if (id) track('fav');
             if (id) store.set('ro_fav', id); else store.del('ro_fav');
             Object.keys(kingsState).forEach(updateKingProgress);
         }
@@ -1141,19 +1210,29 @@
             const stale = !king.lastTs || now() - king.lastTs > 4 * 60 * 1000;
             const [main, detail] = homeMessage(king);
             const star = kingId === followed() ? `<svg class="track-card__fav" viewBox="0 0 24 24" fill="currentColor" aria-label="Seguint"><path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.7 7.3L12 17.8 5.7 21.5l1.7-7.3L2 9.5l7.1-.6z"/></svg>` : '';
-            return `<button class="track-card${stale ? ' is-stale' : ''}" style="--c:${king.color}" data-king="${kingId}" role="listitem">
+            return `<button class="track-card${stale ? ' is-stale' : ''}" style="--c:${king.color}" data-king="${kingId}" >
                 <span class="track-card__name"><span>${star}${esc(king.name)}</span><span class="track-card__age" data-age="${king.lastTs || ''}">${king.lastTs ? fmtAge(king.lastTs) : ''}</span></span>
                 <span class="track-card__street">${king.lastTs ? esc(king.currentStreet) : '—'}</span>
                 <span class="track-card__main">${esc(main)}${detail ? `<br><small>${esc(detail)}</small>` : ''}</span>
             </button>`;
         }
 
+        let dockMin = store.get('ro_dockmin') === '1';
+        function setDockMin(v) { dockMin = v; if (v) store.set('ro_dockmin', '1'); else store.del('ro_dockmin'); renderDock(); }
         function renderDock() {
             // Com a màxim una targeta: la del rei de casa teva o el que has triat. Si no n'hi ha cap, només una invitació.
             const f = followed();
             dock.classList.toggle('dock--single', true);
-            setHTMLKeepFocus(dock, f ? cardHTML(f)
-                : '<button class="track-cta" data-open-home role="listitem"><strong>Marca on vius</strong><span>i et direm quan arriba el rei a casa teva</span></button>');
+            const chev = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+            if (dockMin) {
+                // Minimitzat: només una pastilla petita que es torna a ampliar amb un toc
+                const label = f ? esc(kingsState[f].name) : 'Marca on vius';
+                setHTMLKeepFocus(dock, `<button class="dock-pill" data-dock-max aria-label="Ampliar: ${label}" role="listitem"><svg class="dock-pill__up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>${label}</button>`);
+                return;
+            }
+            const inner = f ? cardHTML(f)
+                : '<button class="track-cta" data-open-home><strong>Marca on vius</strong><span>i et direm quan arriba el rei a casa teva</span></button>';
+            setHTMLKeepFocus(dock, `<div class="dock-item" role="listitem">${inner}<button class="dock-min" data-dock-min aria-label="Minimitzar">${chev}</button></div>`);
         }
 
         function kingSheetHTML(kingId) {
@@ -1166,6 +1245,8 @@
                     <span class="sheet__swatch"></span><h2 id="sheetTitle">${esc(king.name)}</h2>
                     <button class="sheet__close" data-close aria-label="Tancar">&times;</button>
                 </div>
+                <p class="sheet__peek">${esc(main)}</p>
+                <div class="sheet__fold"><div class="sheet__foldin">
                 <div>
                     <div class="sheet__where">${where}</div>
                     ${king.prevStreet ? `<div class="sheet__from">Ve de: ${esc(king.prevStreet)}</div>` : ''}
@@ -1182,7 +1263,8 @@
                 ${home ? '' : '<button class="sheet__alt" data-home-pick>Marcar casa meva</button>'}
                 ${lockedByHome ? (kingId === homeKing ? '' : '<p class="sheet__note">Aquest rei no fa la ruta de casa teva.</p>')
                     : `<button class="sheet__go" data-fav="${kingId}">${isFav ? 'Deixar de seguir' : 'Seguir aquest rei'}</button>`}
-                <button class="${lockedByHome ? 'sheet__go' : 'sheet__alt'}" data-go="${kingId}">Veure al mapa</button>`;
+                <button class="${lockedByHome ? 'sheet__go' : 'sheet__alt'}" data-go="${kingId}">Veure al mapa</button>
+                </div></div>`;
         }
 
         function homeSheetHTML() {
@@ -1195,12 +1277,15 @@
                     <span class="sheet__swatch" style="--c:var(--gold)"></span><h2 id="sheetTitle">Casa teva</h2>
                     <button class="sheet__close" data-close aria-label="Tancar">&times;</button>
                 </div>
+                <p class="sheet__peek">${!home ? 'Toca per marcar on vius' : homeKing ? esc(route.name) + ' · ' + esc(kingsState[homeKing].name) : 'Cap ruta passa a prop de casa teva'}</p>
+                <div class="sheet__fold"><div class="sheet__foldin">
                 <p class="sheet__note">${note}</p>
                 <p class="sheet__note" id="geoMsg" role="status"></p>
                 <button class="sheet__go" data-home-pick>${home ? 'Canviar al mapa' : 'Triar al mapa'}</button>
                 <button class="sheet__alt" data-home-geo>Fer servir la meva ubicació</button>
                 ${home && homeKing ? `<button class="sheet__alt" data-toggle-all>${showAll ? 'Amagar les altres rutes' : 'Veure també les altres rutes'}</button>` : ''}
-                ${home ? '<button class="sheet__alt" data-home-clear>Treure casa</button>' : ''}`;
+                ${home ? '<button class="sheet__alt" data-home-clear>Treure casa</button>' : ''}
+                </div></div>`;
         }
 
         function renderKing() {
@@ -1214,14 +1299,38 @@
             track('open', { k: kingId });
             sheetBody._html = null;
             setHTMLKeepFocus(sheetBody, kingSheetHTML(kingId));
-            if (!sheet.open) sheet.showModal();
+            showSheet();
         }
+
+        // Panell no modal: el mapa segueix funcionant. S'obre ampliat i es pot minimitzar (toc o arrossegar el tirador).
+        const sheetGrab = document.getElementById('sheetGrab');
+        function setSheetMin(v) {
+            sheet.classList.toggle('is-min', v);
+            sheetGrab.setAttribute('aria-expanded', String(!v));
+            sheetGrab.setAttribute('aria-label', v ? 'Ampliar el panell' : 'Minimitzar el panell');
+        }
+        function showSheet() {
+            if (!sheet.open) { setSheetMin(false); sheet.show(); }
+        }
+        let grabY = null, grabMoved = false;
+        sheetGrab.addEventListener('pointerdown', e => { grabY = e.clientY; grabMoved = false; sheetGrab.setPointerCapture(e.pointerId); });
+        sheetGrab.addEventListener('pointerup', e => {
+            if (grabY == null) return;
+            const dy = e.clientY - grabY; grabY = null;
+            if (Math.abs(dy) > 20) { grabMoved = true; setSheetMin(dy > 0); }
+        });
+        sheetGrab.addEventListener('pointercancel', () => { grabY = null; });
+        sheetGrab.addEventListener('click', () => {
+            if (grabMoved) { grabMoved = false; return; }
+            setSheetMin(!sheet.classList.contains('is-min'));
+        });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && sheet.open) sheet.close(); });
 
         function openHomeSheet() {
             openKingId = null; sheetMode = 'home';
             sheetBody._html = null;
             setHTMLKeepFocus(sheetBody, homeSheetHTML());
-            if (!sheet.open) sheet.showModal();
+            showSheet();
         }
 
         function focusKing(kingId) {
@@ -1230,6 +1339,8 @@
         }
 
         dock.addEventListener('click', e => {
+            if (e.target.closest('[data-dock-min]')) { setDockMin(true); return; }
+            if (e.target.closest('[data-dock-max]')) { setDockMin(false); return; }
             if (e.target.closest('[data-open-home]')) return openHomeSheet();
             const b = e.target.closest('[data-king]');
             if (!b) return;
@@ -1238,7 +1349,7 @@
         });
         homeFab.addEventListener('click', openHomeSheet);
         sheet.addEventListener('click', e => {
-            if (e.target === sheet || e.target.closest('[data-close]')) return sheet.close();
+            if (e.target.closest('[data-close]')) return sheet.close();
             const go = e.target.closest('[data-go]');
             if (go) { sheet.close(); return focusKing(go.dataset.go); }
             const fav = e.target.closest('[data-fav]');
@@ -1325,7 +1436,9 @@
         const consentEl = document.getElementById('consent');
         const sessionId = randHex(8);
 
-        function consentState() { const c = getCookie('ro_consent'); return c === '1' ? 1 : c === '0' ? 0 : null; }
+        // Si el navegador envia «no em segueixis» (GPC / DNT), es respecta: no es mostra el bàner ni es desa cap cookie.
+        const PRIVACY_SIGNAL = navigator.globalPrivacyControl === true || navigator.doNotTrack === '1';
+        function consentState() { const c = getCookie('ro_consent'); return c === '1' ? 1 : c === '0' ? 0 : (PRIVACY_SIGNAL ? 0 : null); }
         function visitorId() {
             if (consentState() !== 1) return undefined;
             let v = getCookie('ro_vid');
@@ -1343,6 +1456,13 @@
             } catch (e) { /* les analítiques mai han de trencar l'app */ }
         }
 
+        const consentStateEl = document.getElementById('consentState');
+        function showConsent(focus) {
+            const c = consentState();
+            consentStateEl.textContent = c === 1 ? 'Ara tens les cookies acceptades.' : c === 0 ? (getCookie('ro_consent') === '0' ? 'Ara tens les cookies rebutjades.' : 'El teu navegador demana no ser seguit: no desem cap cookie.') : '';
+            consentEl.classList.add('is-open');
+            if (focus) { const b = consentEl.querySelector('[data-consent="0"]'); if (b) b.focus(); }
+        }
         function setConsent(value) {
             setCookie('ro_consent', value, 395);
             if (value === '1') visitorId();
@@ -1353,10 +1473,18 @@
             const b = e.target.closest('[data-consent]');
             if (b) setConsent(b.dataset.consent);
         });
-        document.getElementById('privacyBtn').addEventListener('click', () => consentEl.classList.add('is-open'));
-        if (consentState() === null && !SIM) consentEl.classList.add('is-open');
+        document.getElementById('privacyBtn').addEventListener('click', () => showConsent(true));
+        consentEl.addEventListener('keydown', e => { if (e.key === 'Escape') consentEl.classList.remove('is-open'); });
+        if (consentState() === null && !SIM) showConsent(false);
 
-        track('view');
+        // Errors inesperats del navegador: només es compta que n'hi ha hagut (màx. 3 per sessió), sense detalls ni dades
+        let errSent = 0;
+        const reportErr = () => { if (errSent++ < 3) track('err'); };
+        window.addEventListener('error', reportErr);
+        window.addEventListener('unhandledrejection', reportErr);
+
+        const srcParam = new URLSearchParams(location.search).get('src');
+        track('view', /^[a-z0-9_-]{1,16}$/i.test(srcParam || '') ? { src: srcParam } : undefined);
         setInterval(() => { if (document.visibilityState === 'visible') track('beat'); }, 30000);
 
         // ============================================================
