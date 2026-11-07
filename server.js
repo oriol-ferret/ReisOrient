@@ -205,8 +205,8 @@ function buildCSP(rawHtml) {
         `script-src 'self' ${hashes(/<script>([\s\S]*?)<\/script>/g)}`.trim(),
         `style-src 'self' ${hashes(/<style>([\s\S]*?)<\/style>/g)}`.trim(),
         "style-src-attr 'unsafe-inline'",
-        // PROVA TEMPORAL: amb TILE_UNLIMITED=1 el navegador carrega els mosaics directament d'OSM (sense passar pel servidor)
-        "img-src 'self' data: https://tile.openstreetmap.org", // TEMPORAL (prova mapa lliure): treure l'host d'OSM en tornar als mosaics propis
+        // TEMPORAL (prova mapa lliure): el navegador carrega mosaics directament d'OSM. Treure l'host en tornar als mosaics propis.
+        "img-src 'self' data: https://tile.openstreetmap.org",
         "font-src 'self'",
         "connect-src 'self'",
         "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'",
@@ -312,7 +312,19 @@ function handlePing(params, res) {
 const STATS_FILE = path.join(DATA_DIR, 'stats.json');
 const STATS_KEY = process.env.STATS_KEY || ''; // sense clau, /stats està desactivat
 let stats = { hours: {}, days: {} };
-try { stats = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8')); stats.hours ||= {}; stats.days ||= {}; } catch (e) { /* nou */ }
+try { stats = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8')); stats.hours ||= {}; stats.days ||= {}; }
+catch (e) {
+    if (e.code !== 'ENOENT') { // fitxer il·legible: es guarda una còpia perquè no es perdi en silenci
+        try { fs.copyFileSync(STATS_FILE, STATS_FILE + '.corrupt'); } catch (e2) { /* res */ }
+        console.warn('[STATS] stats.json il·legible, comencem de zero (còpia a stats.json.corrupt)');
+    }
+    stats = { hours: {}, days: {} };
+}
+async function saveStats() { // escriptura atòmica: mai queda un fitxer a mitges si es talla el procés
+    const tmp = STATS_FILE + '.tmp';
+    await fsp.writeFile(tmp, JSON.stringify(stats));
+    await fsp.rename(tmp, STATS_FILE);
+}
 const live = new Map();          // sessió (en memòria, només d'aquesta càrrega de pàgina) -> últim senyal
 let seenHour = new Set(), seenHourKey = '';
 let seenDay = new Set(), seenDayKey = '';
@@ -322,7 +334,20 @@ const hourKey = t => new Date(t).toISOString().slice(0, 13);
 function hourBucket(now) {
     const k = hourKey(now);
     if (k !== seenHourKey) { seenHourKey = k; seenHour = new Set(); }
-    return stats.hours[k] ||= { views: 0, active: 0, peak: 0, mobile: 0, desktop: 0, consentYes: 0, consentNo: 0, opens: {} };
+    return stats.hours[k] ||= { views: 0, active: 0, peak: 0, mobile: 0, desktop: 0, consentYes: 0, consentNo: 0, opens: {}, beats: 0, errors: 0, homes: 0, favs: 0 };
+}
+const dayBucket = dk => stats.days[dk] ||= { visitors: 0, anon: 0, views: 0, homes: {}, src: {} };
+
+// Visitants únics SENSE cookie: hash(sal del dia + IP + navegador). La sal és aleatòria, només és a memòria i canvia cada dia (UTC);
+// ni la IP ni el hash es desen mai: només es compta quantes empremtes diferents hi ha hagut avui. Amb la sal esborrada,
+// és impossible reconèixer ningú d'un dia a l'altre. Si el servidor es reinicia, la sal canvia i aquell dia pot comptar algú dues vegades.
+let anonSalt = crypto.randomBytes(16), anonDay = '', anonSeen = new Set();
+function countAnonVisitor(req, now) {
+    const dk = new Date(now).toISOString().slice(0, 10);
+    if (dk !== anonDay) { anonDay = dk; anonSalt = crypto.randomBytes(16); anonSeen = new Set(); }
+    if (anonSeen.size >= 200000) return;
+    const h = crypto.createHash('sha256').update(anonSalt).update(clientIp(req)).update('|').update(String(req.headers['user-agent'] || '')).digest('base64url').slice(0, 16);
+    if (!anonSeen.has(h)) { anonSeen.add(h); dayBucket(dk).anon++; statsDirty = true; }
 }
 
 function handleHit(req, res) {
@@ -338,14 +363,29 @@ function handleHit(req, res) {
         res.end();
         let e;
         try { e = JSON.parse(body); } catch (err) { return; }
-        if (!e || !/^[\w-]{8,40}$/.test(e.s || '') || !['view', 'beat', 'open'].includes(e.t)) return;
+        if (!e || !/^[\w-]{8,40}$/.test(e.s || '') || !['view', 'beat', 'open', 'home', 'fav', 'err'].includes(e.t)) return;
         const now = Date.now();
+        countAnonVisitor(req, now);
         if (live.size < 100000) live.set(e.s, now);
         const b = hourBucket(now);
         if (!seenHour.has(e.s)) { seenHour.add(e.s); b.active++; }
         b.peak = Math.max(b.peak, live.size);
+        const dk0 = new Date(now).toISOString().slice(0, 10);
+        if (e.t === 'beat') b.beats++;
+        else if (e.t === 'err') b.errors++;
+        else if (e.t === 'fav') b.favs++;
+        else if (e.t === 'home') {
+            b.homes++;
+            // Quina ruta té més demanda (només el nom de la ruta, mai la ubicació)
+            const rk = /^[\w-]{1,24}$/.test(e.r || '') ? e.r : 'cap';
+            const hd = dayBucket(dk0).homes;
+            if (Object.keys(hd).length < 20 || hd[rk]) hd[rk] = (hd[rk] || 0) + 1;
+        }
         if (e.t === 'view') {
             b.views++;
+            const d0 = dayBucket(dk0); d0.views++;
+            // Origen opcional (?src=cartell): per saber quin cartell/QR/xarxa porta visitants
+            if (/^[a-z0-9_-]{1,16}$/i.test(e.src || '') && (Object.keys(d0.src).length < 20 || d0.src[e.src])) d0.src[e.src] = (d0.src[e.src] || 0) + 1;
             if (/Mobi|Android|iPhone|iPad/i.test(req.headers['user-agent'] || '')) b.mobile++; else b.desktop++;
             if (e.c === 1) b.consentYes++; else if (e.c === 0) b.consentNo++;
         } else if (e.t === 'open' && /^[A-Za-z]{1,24}$/.test(e.k || '') && (Object.keys(b.opens).length < 30 || b.opens[e.k])) {
@@ -355,7 +395,7 @@ function handleHit(req, res) {
         if (/^[0-9a-f]{16,32}$/.test(e.v || '')) {
             const dk = new Date(now).toISOString().slice(0, 10);
             if (dk !== seenDayKey) { seenDayKey = dk; seenDay = new Set(); }
-            if (!seenDay.has(e.v)) { seenDay.add(e.v); (stats.days[dk] ||= { visitors: 0 }).visitors++; }
+            if (!seenDay.has(e.v)) { seenDay.add(e.v); dayBucket(dk).visitors++; }
         }
         statsDirty = true;
     });
@@ -368,9 +408,11 @@ setInterval(() => {
     if (live.size > b.peak) { b.peak = live.size; statsDirty = true; }
     const cutoff = hourKey(now - 14 * 86400000);
     for (const k of Object.keys(stats.hours)) if (k < cutoff) delete stats.hours[k];
+    const dayCut = new Date(now - 90 * 86400000).toISOString().slice(0, 10);
+    for (const k of Object.keys(stats.days)) if (k < dayCut) delete stats.days[k];
     if (statsDirty) {
         statsDirty = false;
-        fsp.writeFile(STATS_FILE, JSON.stringify(stats)).catch(e => { statsDirty = true; console.error('[STATS]', e.message); });
+        saveStats().catch(e => { statsDirty = true; console.error('[STATS]', e.message); });
     }
 }, 30000);
 
@@ -387,25 +429,28 @@ function handleStats(req, res, query, pathname) {
         rows.push({ hour: k, ...(stats.hours[k] || { views: 0, active: 0, peak: 0, mobile: 0, desktop: 0, consentYes: 0, consentNo: 0, opens: {} }) });
     }
     const opens = {};
-    let views = 0, mobile = 0, desktop = 0, yes = 0, no = 0, peak = 0;
+    let views = 0, mobile = 0, desktop = 0, yes = 0, no = 0, peak = 0, beats = 0, sessions = 0, errors = 0, homes = 0, favs = 0;
     for (const r of rows) {
+        beats += r.beats || 0; sessions += r.active || 0; errors += r.errors || 0; homes += r.homes || 0; favs += r.favs || 0;
         views += r.views; mobile += r.mobile; desktop += r.desktop; yes += r.consentYes; no += r.consentNo; peak = Math.max(peak, r.peak);
         for (const k of Object.keys(r.opens)) opens[k] = (opens[k] || 0) + r.opens[k];
     }
-    const summary = { liveNow: live.size, last24h: { views, peakConcurrent: peak, mobile, desktop, consentAccepted: yes, consentRejected: no, kingOpens: opens }, days: stats.days, hours: rows };
+    const avgMin = sessions ? Math.round(beats * 0.5 / sessions * 10) / 10 : 0; // cada "beat" = 30 s a la pantalla
+    const summary = { liveNow: live.size, last24h: { views, sessions, avgMinutesPerSession: avgMin, peakConcurrent: peak, mobile, desktop, consentAccepted: yes, consentRejected: no, homesMarked: homes, favs, clientErrors: errors, kingOpens: opens }, days: stats.days, hours: rows };
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Robots-Tag', 'noindex');
     if (pathname === '/stats.json') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify(summary)); }
     const tr = rows.map(r => `<tr><td>${esc(r.hour)}</td><td>${r.views}</td><td>${r.active}</td><td>${r.peak}</td><td>${r.mobile}/${r.desktop}</td></tr>`).join('');
-    const days = Object.entries(stats.days).sort().slice(-7).map(([d, v]) => `<tr><td>${esc(d)}</td><td>${v.visitors}</td></tr>`).join('');
+    const days = Object.entries(stats.days).sort().slice(-14).map(([d, v]) => `<tr><td>${esc(d)}</td><td>${v.anon || 0}</td><td>${v.visitors || 0}</td><td>${v.views || 0}</td><td>${esc(Object.entries(v.homes || {}).map(([k, n]) => k + ' ' + n).join(' · ') || '—')}</td><td>${esc(Object.entries(v.src || {}).map(([k, n]) => k + ' ' + n).join(' · ') || '—')}</td></tr>`).join('');
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Estadístiques</title>
 <style>body{font:15px system-ui;max-width:720px;margin:24px auto;padding:0 16px}table{border-collapse:collapse;width:100%;margin:8px 0 24px}td,th{border-bottom:1px solid #ddd;padding:6px 8px;text-align:right}th:first-child,td:first-child{text-align:left}</style>
 <h1>Estadístiques</h1>
 <p><b>${live.size}</b> persones connectades ara · <b>${views}</b> visites 24 h · pic simultani <b>${peak}</b> · mòbil/ordinador ${mobile}/${desktop} · cookies acceptades/rebutjades ${yes}/${no}</p>
+<p>Sessions ${sessions} · ~${avgMin} min de mitjana · cases marcades ${homes} · reis seguits ${favs} · <b>errors del navegador ${errors}</b></p>
 <p>Reis consultats (24 h): ${Object.entries(opens).map(([k, v]) => esc(k) + ' ' + v).join(' · ') || '—'}</p>
 <h2>Per hora (UTC)</h2><table><tr><th>Hora</th><th>Visites</th><th>Sessions</th><th>Pic</th><th>Mòbil/PC</th></tr>${tr}</table>
-<h2>Visitants únics (només amb cookie acceptada)</h2><table><tr><th>Dia</th><th>Visitants</th></tr>${days || '<tr><td>—</td><td></td></tr>'}</table>`);
+<h2>Per dia</h2><table><tr><th>Dia</th><th>Visitants únics (sense cookie)</th><th>Amb cookie</th><th>Visites</th><th>Cases per ruta</th><th>Origen (?src=)</th></tr>${days || '<tr><td>—</td><td></td><td></td><td></td><td></td><td></td></tr>'}</table>`);
 }
 
 // ============================================================
@@ -416,6 +461,8 @@ const SEC_HEADERS = {
     'X-Frame-Options': 'DENY',
     'Referrer-Policy': 'strict-origin-when-cross-origin', // OSM demana el Referer als mosaics
     'Permissions-Policy': 'geolocation=(self), camera=(), microphone=(), payment=()',
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'X-Permitted-Cross-Domain-Policies': 'none',
 };
 
 const buckets = new Map();
@@ -625,6 +672,8 @@ async function handle(req, res) {
     let pathname = u.pathname;
     const query = Object.fromEntries(u.searchParams);
     for (const k in SEC_HEADERS) res.setHeader(k, SEC_HEADERS[k]);
+    // HSTS només si la petició va per HTTPS (via el proxy); mai a localhost/HTTP
+    if (String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https') res.setHeader('Strict-Transport-Security', 'max-age=15552000');
     if (req.headers['x-forwarded-proto'] === 'https') res.setHeader('Strict-Transport-Security', 'max-age=15552000');
 
     // /tracker (sense barra) -> /tracker/ només per a navegadors, no per als pings de Traccar
@@ -709,7 +758,7 @@ process.on('uncaughtException', e => console.error('[FATAL]', e));
 process.on('unhandledRejection', e => console.error('[FATAL]', e));
 for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => {
     flushSync();
-    try { fs.writeFileSync(STATS_FILE, JSON.stringify(stats)); } catch (e) { /* res */ }
+    try { fs.writeFileSync(STATS_FILE + '.tmp', JSON.stringify(stats)); fs.renameSync(STATS_FILE + '.tmp', STATS_FILE); } catch (e) { /* res */ }
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 3000).unref(); // no esperar connexions keep-alive
 });
