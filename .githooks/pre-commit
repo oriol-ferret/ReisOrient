@@ -1,0 +1,3 @@
+#!/bin/sh
+# Hook de pre-commit: executa les comprovacions de tools/precommit.js (secrets, fitxers prohibits, sintaxi, dependències).
+exec node "$(git rev-parse --show-toplevel)/tools/precommit.js"

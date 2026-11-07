@@ -4,7 +4,9 @@
   "description": "Seguimiento en directo de la Cabalgata de Reyes",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "setup-hooks": "git config core.hooksPath .githooks",
+    "precommit": "node tools/precommit.js"
   },
   "author": "",
   "license": "MIT",
