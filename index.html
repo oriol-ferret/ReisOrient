@@ -632,6 +632,7 @@
     </div>
 
     <!-- Leaflet JS -->
+    <script type="application/json" id="app-config">__APP_CONFIG__</script>
     <script src="vendor/leaflet/leaflet.js"></script>
 
     <!-- Firebase SDK eliminado (reemplazado por REST Polling) -->
@@ -715,16 +716,34 @@
         // ============================================================
         // 🗺️ TRAÇAT DE LES RUTES OFICIALS (GeoJSON)
         // ============================================================
-        // Afegeix una ruta nova = una entrada aquí (nom visible, color i fitxer GeoJSON a l'arrel).
-        const ROUTES = [
-            { id: 'ruta1', tracker: 'Melcior', name: 'Ruta 1', color: '#b8860b', file: 'ruta_melcior.geojson' },
-            { id: 'ruta2', tracker: 'Gaspar', name: 'Ruta 2', color: '#ab2330', file: 'ruta_gaspar.geojson' },
-            { id: 'ruta3', tracker: 'Baltasar', name: 'Ruta 3', color: '#228b22', file: 'ruta_baltasar.geojson' },
-            { id: 'ruta4', tracker: 'Estrella', name: 'Ruta 4', color: '#0e7490', file: 'ruta_estrella.geojson' },
-            { id: 'ruta5', name: 'Ruta 5', color: '#7c3aed', file: 'ruta_5.geojson' },
-            { id: 'ruta6', name: 'Ruta 6', color: '#c2410c', file: 'ruta_6.geojson' },
-            { id: 'ruta7', name: 'Ruta 7', color: '#be185d', file: 'ruta_7.geojson' },
-        ];
+        // Les rutes i els reis venen de la configuració del servidor (es canvien des de /admin). Si no hi és (p. ex. s'obre
+        // el fitxer a mà), es fa servir aquesta còpia per defecte.
+        const DEFAULT_CONFIG = {
+            version: 0,
+            kings: [
+                { id: 'Melcior', name: 'Rei Melcior', color: '#d4a017', icon: 'crown' },
+                { id: 'Gaspar', name: 'Rei Gaspar', color: '#ab2330', icon: 'crown' },
+                { id: 'Baltasar', name: 'Rei Baltasar', color: '#228b22', icon: 'crown' },
+                { id: 'Estrella', name: "Estrella d'Orient", color: '#0e7490', icon: 'star' },
+            ],
+            routes: [
+                { id: 'ruta1', tracker: 'Melcior', name: 'Ruta 1', color: '#b8860b', file: 'ruta_melcior.geojson' },
+                { id: 'ruta2', tracker: 'Gaspar', name: 'Ruta 2', color: '#ab2330', file: 'ruta_gaspar.geojson' },
+                { id: 'ruta3', tracker: 'Baltasar', name: 'Ruta 3', color: '#228b22', file: 'ruta_baltasar.geojson' },
+                { id: 'ruta4', tracker: 'Estrella', name: 'Ruta 4', color: '#0e7490', file: 'ruta_estrella.geojson' },
+            ],
+        };
+        const APP_CONFIG = (() => {
+            try {
+                const c = JSON.parse(document.getElementById('app-config').textContent);
+                if (c && Array.isArray(c.kings) && Array.isArray(c.routes)) return c;
+            } catch (e) { /* configuració per defecte */ }
+            return DEFAULT_CONFIG;
+        })();
+        const ROUTES = APP_CONFIG.routes.map(r => ({
+            id: r.id, tracker: r.tracker || undefined, name: r.name, color: r.color,
+            file: r.file || (r.hasGeo ? `api/route/${r.id}.geojson?v=${APP_CONFIG.version}` : null),
+        }));
 
         // Capes de rutes (una per ruta) — s'afegeixen al control de capes més avall
         const routeOn = {}; // casella de cada ruta al llistat (true = visible)
@@ -733,7 +752,7 @@
         ROUTES.forEach(route => {
             const layer = L.layerGroup().addTo(map);
             routeLayers[route.name] = layer;
-            route.ready = fetch(route.file)
+            route.ready = (route.file ? fetch(route.file) : Promise.reject(new Error('sense traçat')))
                 .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
                 .then(data => {
                     L.geoJSON(data, {
@@ -742,7 +761,7 @@
                     }).addTo(layer);
                     prepareRoute(route, data);
                 })
-                .catch(err => console.warn(`Ruta no carregada (${route.file}):`, err));
+                .catch(err => { if (route.file) console.warn(`Ruta no carregada (${route.file}):`, err); });
         });
 
         // ============================================================
@@ -752,48 +771,19 @@
         const CROWN_SVG = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 18.5h18l1-11-5.2 4.3L12 4.5 7.2 11.8 2 7.5z"/><rect x="3" y="19.5" width="18" height="2" rx="1"/></svg>`;
         const STAR_SVG = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.7 7.3L12 17.8 5.7 21.5l1.7-7.3L2 9.5l7.1-.6z"/></svg>`;
 
-        const kingsState = {
-            Melcior: {
-                name: 'Rei Melcior',
-                icon: CROWN_SVG,
-                color: '#d4a017', // Dorado
+        const kingsState = {};
+        APP_CONFIG.kings.forEach(k => {
+            kingsState[k.id] = {
+                name: k.name,
+                icon: k.icon === 'star' ? STAR_SVG : CROWN_SVG,
+                color: k.color,
                 marker: null,
                 trailPoints: [],
                 trailGroup: L.layerGroup().addTo(map),
-                currentStreet: "Ubicació desconeguda",
-                lastAddressFetch: 0
-            },
-            Gaspar: {
-                name: 'Rei Gaspar',
-                icon: CROWN_SVG,
-                color: '#ab2330', // Granate/Carmesí
-                marker: null,
-                trailPoints: [],
-                trailGroup: L.layerGroup().addTo(map),
-                currentStreet: "Ubicació desconeguda",
-                lastAddressFetch: 0
-            },
-            Baltasar: {
-                name: 'Rei Baltasar',
-                icon: CROWN_SVG,
-                color: '#228b22', // Verde
-                marker: null,
-                trailPoints: [],
-                trailGroup: L.layerGroup().addTo(map),
-                currentStreet: "Ubicació desconeguda",
-                lastAddressFetch: 0
-            },
-            Estrella: {
-                name: 'Estrella d\'Orient',
-                icon: STAR_SVG,
-                color: '#0e7490', // Azul petróleo (contrast sobre borde blanco)
-                marker: null,
-                trailPoints: [],
-                trailGroup: L.layerGroup().addTo(map),
-                currentStreet: "Ubicació desconeguda",
-                lastAddressFetch: 0
-            }
-        };
+                currentStreet: 'Ubicació desconeguda',
+                lastAddressFetch: 0,
+            };
+        });
 
         // Crear capes base (buit per ara, només tenim el mapa de fons)
         const baseMaps = {
@@ -1570,7 +1560,9 @@
         window.addEventListener('unhandledrejection', reportErr);
 
         const srcParam = new URLSearchParams(location.search).get('src');
-        track('view', /^[a-z0-9_-]{1,16}$/i.test(srcParam || '') ? { src: srcParam } : undefined);
+        // Només el domini d'on vens (p. ex. instagram.com), mai la pàgina completa
+        let refHost = ''; try { refHost = document.referrer ? new URL(document.referrer).hostname.replace(/^www\./, '') : ''; } catch (e) { /* res */ }
+        track('view', { ...(/^[a-z0-9_-]{1,16}$/i.test(srcParam || '') ? { src: srcParam } : {}), ...(refHost && refHost !== location.hostname ? { ref: refHost } : {}) });
         setInterval(() => { if (document.visibilityState === 'visible') track('beat'); }, 30000);
 
         // ============================================================
@@ -1657,6 +1649,11 @@
                 const serverDate = Date.parse(response.headers.get('Date') || '');
                 if (!SIM && Number.isFinite(serverDate)) clockOffset = serverDate - Date.now();
                 const data = await response.json();
+                // Si s'han canviat rutes o reis des de /admin, es recarrega (com a molt un cop cada 30 s)
+                if (!SIM && Number.isFinite(data.cfgv) && data.cfgv !== APP_CONFIG.version && APP_CONFIG !== DEFAULT_CONFIG) {
+                    let last = 0; try { last = Number(sessionStorage.getItem('ro_cfgreload')) || 0; } catch (e) { /* res */ }
+                    if (Date.now() - last > 30000) { try { sessionStorage.setItem('ro_cfgreload', String(Date.now())); } catch (e) { /* res */ } location.reload(); return; }
+                }
 
                 const cutoff = now() - (CONFIG.trailMaxHours * 60 * 60 * 1000);
                 let mostRecent = 0;

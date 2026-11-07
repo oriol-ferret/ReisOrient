@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Administració · Cavalcada de Reis</title>
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<style>
+:root{--ink:#202124;--mut:#5f6368;--line:#e6e6e6;--bg:#f7f5f2;--wine:#6b1d3a;--wine-d:#4a0e25;--gold:#d4a017;--bad:#b3261e;--ok:#1e7e34}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg)}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:860px;margin:0 auto;padding:0 16px}
+header.top{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.bar{display:flex;align-items:center;gap:12px;padding:10px 0;flex-wrap:wrap}
+.bar h1{font-size:1.1rem;margin:0;color:var(--wine)}
+.bar .sp{margin-left:auto;display:flex;gap:8px;align-items:center}
+nav.tabs{display:flex;gap:4px}
+nav.tabs button{border:0;background:none;padding:8px 14px;border-radius:18px;font-weight:600;color:var(--mut);cursor:pointer}
+nav.tabs button[aria-selected="true"]{background:var(--wine);color:#fff}
+main{padding:18px 0 60px}
+h2{font-size:1.05rem;margin:0}
+.head{display:flex;align-items:center;gap:10px;margin:0 0 12px}.head .sp{margin-left:auto}
+.btn{border:1px solid #cfcfcf;background:#fff;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:.9rem;min-height:36px}
+.btn:hover{background:#f1f3f4}.btn.pri{background:var(--wine);color:#fff;border-color:var(--wine)}.btn.pri:hover{background:var(--wine-d)}
+.btn.danger{color:var(--bad);border-color:#e3b5b1}.btn.sm{padding:4px 9px;min-height:30px;font-size:.84rem}
+.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--wine);outline-offset:2px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.list{display:grid;gap:8px}
+.item{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.item.off{opacity:.55}
+.sw{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+.grow{flex:1;min-width:0}.nm{font-weight:600}.meta{font-size:.82rem;color:var(--mut)}
+.warn{color:var(--bad);font-weight:600}
+.acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.order{display:grid;gap:2px}.order button{border:1px solid #ddd;background:#fff;border-radius:6px;width:28px;height:22px;line-height:1;cursor:pointer;color:var(--mut)}
+.order button[disabled]{opacity:.3;cursor:default}
+.empty{background:#fff;border:1px dashed #ccc;border-radius:12px;padding:20px;color:var(--mut);text-align:center}
+.login{max-width:360px;margin:12vh auto;background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px}
+.login h1{margin:0 0 4px;font-size:1.2rem;color:var(--wine)}
+label.f{display:grid;gap:4px;margin:10px 0;font-size:.88rem;font-weight:600}
+label.f input[type=text],label.f input[type=password],label.f select,label.f textarea{width:100%;border:1px solid #cfcfcf;border-radius:8px;padding:8px 10px;background:#fff;font-weight:400}
+label.f input[type=color]{width:56px;height:36px;border:1px solid #cfcfcf;border-radius:8px;padding:2px;background:#fff}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.row2{grid-template-columns:1fr}.item{flex-wrap:wrap}}
+.err{color:var(--bad);font-size:.88rem;margin:6px 0;min-height:1.2em}.okmsg{color:var(--ok)}
+dialog{border:0;border-radius:14px;padding:0;width:min(640px,calc(100vw - 24px));max-height:92vh;box-shadow:0 12px 40px rgba(0,0,0,.3)}
+dialog::backdrop{background:rgba(20,5,12,.5)}
+.dlg{padding:16px 18px;display:grid;gap:4px}
+.dlg h2{margin-bottom:4px}
+.foot{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+#preview{height:230px;border:1px solid var(--line);border-radius:10px;background:#f2efe9}
+.hint{font-size:.8rem;color:var(--mut)}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#202124;color:#fff;padding:9px 16px;border-radius:20px;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
+.toast.on{opacity:1}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+
+<section id="loginView" class="login" hidden>
+  <h1>Administració</h1>
+  <p class="hint">Cavalcada de Reis · accés restringit</p>
+  <form id="loginForm">
+    <label class="f">Clau d'administració<input type="password" id="key" autocomplete="current-password" required></label>
+    <div class="err" id="loginErr" role="alert"></div>
+    <button class="btn pri" type="submit" style="width:100%">Entrar</button>
+  </form>
+</section>
+
+<section id="appView" hidden>
+  <header class="top"><div class="wrap"><div class="bar">
+    <h1>Administració</h1>
+    <nav class="tabs" role="tablist">
+      <button role="tab" id="tabRoutes" aria-selected="true">Rutes</button>
+      <button role="tab" id="tabKings" aria-selected="false">Reis</button>
+    </nav>
+    <div class="sp"><a class="btn sm" href="./" target="_blank" rel="noopener">Veure el mapa</a><button class="btn sm" id="logout">Tancar sessió</button></div>
+  </div></div></header>
+  <main><div class="wrap">
+    <div id="panelRoutes">
+      <div class="head"><h2>Rutes</h2><span class="hint" id="routesCount"></span><div class="sp"><button class="btn pri" id="addRoute">+ Afegir ruta</button></div></div>
+      <div class="list" id="routeList"></div>
+      <p class="hint">L'ordre d'aquí és l'ordre al llistat del mapa. Els canvis arriben als visitants en pocs segons (el mapa es recarrega sol).</p>
+    </div>
+    <div id="panelKings" hidden>
+      <div class="head"><h2>Reis (dispositius)</h2><div class="sp"><button class="btn pri" id="addKing">+ Afegir rei</button></div></div>
+      <div class="list" id="kingList"></div>
+      <p class="hint">L'identificador ha de coincidir amb el nom del dispositiu a Traccar Client (per exemple <b>Gaspar</b>). No es pot canviar després.</p>
+    </div>
+  </div></main>
+</section>
+
+<dialog id="routeDlg"><form method="dialog" class="dlg" id="routeForm">
+  <h2 id="routeTitle">Ruta</h2>
+  <div class="row2">
+    <label class="f">Nom<input type="text" id="rName" maxlength="40" required></label>
+    <label class="f">Rei assignat<select id="rKing"></select></label>
+  </div>
+  <div class="row2">
+    <label class="f">Color<input type="color" id="rColor" value="#6b1d3a"></label>
+    <label class="f" id="rEnabledBox" style="grid-template-columns:auto 1fr;align-items:center;gap:8px;margin-top:26px"><input type="checkbox" id="rEnabled" checked> Visible al mapa</label>
+  </div>
+  <label class="f">Traçat (GeoJSON)<input type="file" id="rFile" accept=".geojson,.json,application/geo+json,application/json"></label>
+  <label class="f">…o enganxa'l aquí<textarea id="rText" rows="3" spellcheck="false" placeholder='{"type":"FeatureCollection","features":[…]}'></textarea></label>
+  <div class="hint" id="rInfo">Només línies (LineString). Coordenades en l'ordre [longitud, latitud].</div>
+  <div id="preview"></div>
+  <div class="err" id="rErr" role="alert"></div>
+  <div class="foot"><button type="button" class="btn" id="rCancel">Cancel·lar</button><button type="submit" class="btn pri" id="rSave">Desar</button></div>
+</form></dialog>
+
+<dialog id="kingDlg"><form method="dialog" class="dlg" id="kingForm">
+  <h2 id="kingTitle">Rei</h2>
+  <div class="row2">
+    <label class="f">Identificador (Traccar)<input type="text" id="kId" maxlength="24" pattern="[A-Za-z][A-Za-z0-9_-]{0,23}" required></label>
+    <label class="f">Nom visible<input type="text" id="kName" maxlength="40" required></label>
+  </div>
+  <div class="row2">
+    <label class="f">Color<input type="color" id="kColor" value="#d4a017"></label>
+    <label class="f">Icona<select id="kIcon"><option value="crown">Corona</option><option value="star">Estrella</option></select></label>
+  </div>
+  <div class="err" id="kErr" role="alert"></div>
+  <div class="foot"><button type="button" class="btn" id="kCancel">Cancel·lar</button><button type="submit" class="btn pri">Desar</button></div>
+</form></dialog>
+
+<dialog id="confirmDlg"><form method="dialog" class="dlg">
+  <h2 id="cTitle">Confirmar</h2><p id="cText"></p>
+  <div class="foot"><button type="button" class="btn" id="cNo">Cancel·lar</button><button type="button" class="btn danger" id="cYes">Eliminar</button></div>
+</form></dialog>
+
+<div class="toast" id="toast" role="status"></div>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  let cfg = null, editing = null, geoDraft = null, map = null, layer = null;
+
+  async function api(method, path, body) {
+    const res = await fetch('api/admin/' + path, {
+      method, credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'admin', ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    let data = null; try { data = await res.json(); } catch (e) { /* res */ }
+    if (res.status === 401 && path !== 'login') { showLogin(); throw new Error('Sessió caducada'); }
+    if (!res.ok) throw new Error((data && data.error) || 'Error ' + res.status);
+    return data;
+  }
+  function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('on'), 2400); }
+  function el(tag, props, ...kids) {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(props || {})) { if (k === 'class') e.className = v; else if (k === 'style') e.setAttribute('style', v); else if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else if (v !== false && v != null) e.setAttribute(k, v === true ? '' : v); }
+    kids.flat().forEach(k => e.append(k && k.nodeType ? k : document.createTextNode(k ?? '')));
+    return e;
+  }
+
+  // ---------- sessió ----------
+  function showLogin() { $('appView').hidden = true; $('loginView').hidden = false; $('key').focus(); }
+  async function boot() {
+    try {
+      const s = await fetch('api/admin/session', { credentials: 'same-origin' });
+      if (s.status === 404) { document.body.textContent = 'L\'administració no està activada (falta ADMIN_KEY o STATS_KEY).'; return; }
+      const j = await s.json();
+      if (!j.authed) return showLogin();
+      await load();
+    } catch (e) { showLogin(); }
+  }
+  $('loginForm').addEventListener('submit', async e => {
+    e.preventDefault(); $('loginErr').textContent = '';
+    try { await api('POST', 'login', { key: $('key').value }); $('key').value = ''; await load(); }
+    catch (err) { $('loginErr').textContent = err.message; }
+  });
+  $('logout').addEventListener('click', async () => { try { await api('POST', 'logout', {}); } catch (e) { /* res */ } showLogin(); });
+
+  async function load() {
+    cfg = await api('GET', 'config');
+    $('loginView').hidden = true; $('appView').hidden = false;
+    renderRoutes(); renderKings();
+  }
+
+  // ---------- pestanyes ----------
+  function tab(which) {
+    $('panelRoutes').hidden = which !== 'routes'; $('panelKings').hidden = which !== 'kings';
+    $('tabRoutes').setAttribute('aria-selected', which === 'routes'); $('tabKings').setAttribute('aria-selected', which === 'kings');
+  }
+  $('tabRoutes').addEventListener('click', () => tab('routes')); $('tabKings').addEventListener('click', () => tab('kings'));
+
+  // ---------- rutes ----------
+  const kingName = id => { const k = cfg.kings.find(x => x.id === id); return k ? k.name : null; };
+  function renderRoutes() {
+    const box = $('routeList'); box.textContent = '';
+    $('routesCount').textContent = cfg.routes.length ? `${cfg.routes.length} ${cfg.routes.length === 1 ? 'ruta' : 'rutes'}` : '';
+    if (!cfg.routes.length) { box.append(el('div', { class: 'empty' }, 'Encara no hi ha cap ruta. Afegeix la primera amb «+ Afegir ruta».')); return; }
+    cfg.routes.forEach((r, i) => {
+      const k = kingName(r.tracker);
+      box.append(el('div', { class: 'item' + (r.enabled === false ? ' off' : '') },
+        el('div', { class: 'order' },
+          el('button', { 'aria-label': 'Pujar', disabled: i === 0, onclick: () => move(i, -1) }, '▲'),
+          el('button', { 'aria-label': 'Baixar', disabled: i === cfg.routes.length - 1, onclick: () => move(i, 1) }, '▼')),
+        el('span', { class: 'sw', style: 'background:' + r.color }),
+        el('div', { class: 'grow' },
+          el('div', { class: 'nm' }, r.name),
+          el('div', { class: 'meta' }, k ? k : 'Sense rei assignat', ' · ',
+            r.hasGeo ? el('span', {}, `${r.lengthKm} km · ${r.points} punts`) : el('span', { class: 'warn' }, 'sense traçat'),
+            r.enabled === false ? ' · amagada' : '')),
+        el('div', { class: 'acts' },
+          el('button', { class: 'btn sm', onclick: () => openRoute(r) }, 'Editar'),
+          el('button', { class: 'btn sm danger', onclick: () => confirmDel(`Eliminar «${r.name}»`, 'Es traurà del mapa. El traçat es conserva al servidor com a còpia.', async () => { await api('DELETE', 'routes/' + r.id); await load(); toast('Ruta eliminada'); }) }, 'Eliminar'))));
+    });
+  }
+  async function move(i, d) {
+    const ids = cfg.routes.map(r => r.id); const j = i + d;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    try { await api('POST', 'routes-order', { ids }); await load(); } catch (e) { toast(e.message); }
+  }
+
+  // GeoJSON -> línies per a la vista prèvia (la validació de veritat la fa el servidor)
+  function previewGeo(text) {
+    $('rErr').textContent = '';
+    if (layer) { layer.remove(); layer = null; }
+    geoDraft = null;
+    if (!text || !text.trim()) { $('rInfo').textContent = editing && editing.hasGeo ? 'Es conserva el traçat actual. Puja un fitxer per substituir-lo.' : 'Només línies (LineString). Coordenades en l\'ordre [longitud, latitud].'; return; }
+    try {
+      const data = JSON.parse(text);
+      layer = L.geoJSON(data, { style: { color: $('rColor').value, weight: 4 } }).addTo(map);
+      const b = layer.getBounds();
+      if (!b.isValid()) throw new Error('Sense línies');
+      map.fitBounds(b, { padding: [20, 20] });
+      geoDraft = text;
+      $('rInfo').textContent = 'Traçat carregat (es validarà en desar).';
+    } catch (e) { $('rErr').textContent = 'El contingut no sembla un GeoJSON vàlid.'; }
+  }
+  $('rFile').addEventListener('change', async e => {
+    const f = e.target.files[0]; if (!f) return;
+    if (f.size > 1.5 * 1024 * 1024) { $('rErr').textContent = 'El fitxer és massa gran (màxim 1,5 MB).'; return; }
+    const t = await f.text(); $('rText').value = t; previewGeo(t);
+  });
+  $('rText').addEventListener('input', () => previewGeo($('rText').value));
+  $('rColor').addEventListener('input', () => { if (layer) layer.setStyle({ color: $('rColor').value }); });
+
+  function openRoute(r) {
+    editing = r || null;
+    $('routeTitle').textContent = r ? 'Editar ruta' : 'Afegir ruta';
+    $('rName').value = r ? r.name : ''; $('rColor').value = r ? r.color : '#6b1d3a';
+    $('rEnabled').checked = r ? r.enabled !== false : true; $('rEnabledBox').hidden = !r;
+    $('rText').value = ''; $('rFile').value = ''; $('rErr').textContent = '';
+    const sel = $('rKing'); sel.textContent = '';
+    sel.append(el('option', { value: '' }, 'Cap (només traçat)'));
+    cfg.kings.forEach(k => {
+      const used = cfg.routes.find(x => x.tracker === k.id && (!r || x.id !== r.id));
+      sel.append(el('option', { value: k.id, disabled: !!used }, k.name + (used ? ` (ja a ${used.name})` : '')));
+    });
+    sel.value = r && r.tracker ? r.tracker : '';
+    $('routeDlg').showModal();
+    if (!map) { map = L.map('preview', { zoomControl: true }).setView([41.6, 2.33], 13); L.tileLayer('tiles/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap' }).addTo(map); }
+    setTimeout(async () => {
+      map.invalidateSize(); if (layer) { layer.remove(); layer = null; }
+      if (r && r.hasGeo) {
+        try {
+          const g = await api('GET', `routes/${r.id}/geojson`);
+          layer = L.geoJSON(g, { style: { color: r.color, weight: 4 } }).addTo(map); map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+        } catch (e) { /* res */ }
+      }
+      previewGeo('');
+    }, 60);
+  }
+  $('addRoute').addEventListener('click', () => openRoute(null));
+  $('rCancel').addEventListener('click', () => $('routeDlg').close());
+  $('routeForm').addEventListener('submit', async e => {
+    e.preventDefault(); $('rErr').textContent = '';
+    const body = { name: $('rName').value, color: $('rColor').value, tracker: $('rKing').value || null };
+    if (editing) body.enabled = $('rEnabled').checked;
+    if (geoDraft) body.geojson = geoDraft;
+    $('rSave').disabled = true;
+    try {
+      if (editing) await api('PATCH', 'routes/' + editing.id, body); else await api('POST', 'routes', body);
+      $('routeDlg').close(); await load(); toast('Desat');
+    } catch (err) { $('rErr').textContent = err.message; }
+    finally { $('rSave').disabled = false; }
+  });
+
+  // ---------- reis ----------
+  function renderKings() {
+    const box = $('kingList'); box.textContent = '';
+    if (!cfg.kings.length) { box.append(el('div', { class: 'empty' }, 'Encara no hi ha cap rei.')); return; }
+    cfg.kings.forEach(k => {
+      const route = cfg.routes.find(r => r.tracker === k.id);
+      box.append(el('div', { class: 'item' },
+        el('span', { class: 'sw', style: 'background:' + k.color }),
+        el('div', { class: 'grow' }, el('div', { class: 'nm' }, k.name), el('div', { class: 'meta' }, `Dispositiu: ${k.id} · ${k.icon === 'star' ? 'estrella' : 'corona'} · `, route ? route.name : 'sense ruta')),
+        el('div', { class: 'acts' },
+          el('button', { class: 'btn sm', onclick: () => openKing(k) }, 'Editar'),
+          el('button', { class: 'btn sm danger', onclick: () => confirmDel(`Eliminar «${k.name}»`, route ? `Té assignada la ${route.name}: treu-li primer l'assignació.` : 'Es deixarà de mostrar al mapa.', async () => { await api('DELETE', 'kings/' + k.id); await load(); toast('Rei eliminat'); }) }, 'Eliminar'))));
+    });
+  }
+  let kEdit = null;
+  function openKing(k) {
+    kEdit = k || null; $('kErr').textContent = '';
+    $('kingTitle').textContent = k ? 'Editar rei' : 'Afegir rei';
+    $('kId').value = k ? k.id : ''; $('kId').disabled = !!k; $('kName').value = k ? k.name : '';
+    $('kColor').value = k ? k.color : '#d4a017'; $('kIcon').value = k ? k.icon : 'crown';
+    $('kingDlg').showModal();
+  }
+  $('addKing').addEventListener('click', () => openKing(null));
+  $('kCancel').addEventListener('click', () => $('kingDlg').close());
+  $('kingForm').addEventListener('submit', async e => {
+    e.preventDefault(); $('kErr').textContent = '';
+    const body = { name: $('kName').value, color: $('kColor').value, icon: $('kIcon').value };
+    try {
+      if (kEdit) await api('PATCH', 'kings/' + kEdit.id, body); else await api('POST', 'kings', { id: $('kId').value, ...body });
+      $('kingDlg').close(); await load(); toast('Desat');
+    } catch (err) { $('kErr').textContent = err.message; }
+  });
+
+  // ---------- confirmació ----------
+  let onYes = null;
+  function confirmDel(title, text, fn) { $('cTitle').textContent = title; $('cText').textContent = text; onYes = fn; $('confirmDlg').showModal(); }
+  $('cNo').addEventListener('click', () => $('confirmDlg').close());
+  $('cYes').addEventListener('click', async () => {
+    $('confirmDlg').close();
+    try { await onYes(); } catch (err) { toast(err.message); }
+  });
+
+  boot();
+})();
+</script>
+</body>
+</html>

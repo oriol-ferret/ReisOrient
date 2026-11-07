@@ -125,9 +125,9 @@ const slim = ([ts, lat, lng]) => [Math.round(ts / 1000) * 1000, Math.round(lat *
 
 const builders = {
     // Historial compacte per a la càrrega inicial: { kings: { Rei: [[ts,lat,lng],...] } }
-    state: () => ({ kings: Object.fromEntries([...kings].map(([id, a]) => [id, downsample(a, MAX_STATE_POINTS).map(slim)])) }),
+    state: () => ({ cfgv: appConfig.get().version, kings: Object.fromEntries([...kings].map(([id, a]) => [id, downsample(a, MAX_STATE_POINTS).map(slim)])) }),
     // Només l'última posició de cada rei (resposta minúscula per al polling)
-    latest: () => ({ kings: Object.fromEntries([...kings].filter(([, a]) => a.length).map(([id, a]) => [id, slim(a[a.length - 1])])) }),
+    latest: () => ({ cfgv: appConfig.get().version, kings: Object.fromEntries([...kings].filter(([, a]) => a.length).map(([id, a]) => [id, slim(a[a.length - 1])])) }),
     // Format antic, per compatibilitat amb /data.json
     legacy: () => {
         const out = {};
@@ -187,7 +187,7 @@ function resolveStatic(p) {
     if (decoded.includes('\0') || decoded.includes('..') || decoded.includes('\\')) return null;
     const ext = path.extname(decoded).toLowerCase();
     if (!MIMES[ext]) return null;
-    const ok = /^\/index\.html$/.test(decoded)
+    const ok = /^\/(index|admin)\.html$/.test(decoded)
         || /^\/[\w.-]+\.geojson$/.test(decoded)
         || /^\/vendor\/[\w\/.-]+$/.test(decoded)
         || (process.env.SERVE_PROMO === '1' && /^\/promo-video\/[\w\/.-]+$/.test(decoded));
@@ -222,12 +222,18 @@ function loadStatic(file, ext) {
     return staticInflight.get(file);
 }
 async function readStatic(file, ext) {
-    const body = await fsp.readFile(file);
+    let body = await fsp.readFile(file);
+    const isPage = file === path.join(__dirname, 'index.html') || file === path.join(__dirname, 'admin.html');
+    if (file === path.join(__dirname, 'index.html')) {
+        // Configuració (reis i rutes) incrustada: el mapa la té des del primer instant, sense una petició més
+        const json = JSON.stringify(appConfig.publicConfig()).replace(/</g, '\\u003c');
+        body = Buffer.from(body.toString('utf8').replace('__APP_CONFIG__', () => json), 'utf8');
+    }
     const entry = {
         at: Date.now(), body, ext,
         gz: TEXTUAL.has(ext) && body.length > 1024 ? zlib.gzipSync(body) : null,
         etag: 'W/"' + crypto.createHash('md5').update(body).digest('hex').slice(0, 16) + '"',
-        csp: file === path.join(__dirname, 'index.html') ? buildCSP(body.toString('utf8')) : null,
+        csp: isPage ? buildCSP(body.toString('utf8')) : null,
     };
     staticCache.set(file, entry);
     return entry;
@@ -302,6 +308,7 @@ function handlePing(params, res) {
     }
     if (!plausible(id, ts, lat, lon, Number(params.accuracy))) return reply(200, 'OK'); // 200: l'app no ha de reintentar
     addPoint(id, ts, lat, lon);
+    inc(hourBucket(Date.now()).pings ||= {}, id, 20); lastPing.set(id, Date.now()); statsDirty = true;
     if (process.env.DEBUG) console.log(`[PING] ${id} ${lat},${lon}`);
     reply(200, 'OK');
 }
@@ -311,14 +318,14 @@ function handlePing(params, res) {
 // ============================================================
 const STATS_FILE = path.join(DATA_DIR, 'stats.json');
 const STATS_KEY = process.env.STATS_KEY || ''; // sense clau, /stats està desactivat
-let stats = { hours: {}, days: {} };
-try { stats = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8')); stats.hours ||= {}; stats.days ||= {}; }
+let stats = { hours: {}, days: {}, minutes: {} };
+try { stats = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8')); stats.hours ||= {}; stats.days ||= {}; stats.minutes ||= {}; }
 catch (e) {
     if (e.code !== 'ENOENT') { // fitxer il·legible: es guarda una còpia perquè no es perdi en silenci
         try { fs.copyFileSync(STATS_FILE, STATS_FILE + '.corrupt'); } catch (e2) { /* res */ }
         console.warn('[STATS] stats.json il·legible, comencem de zero (còpia a stats.json.corrupt)');
     }
-    stats = { hours: {}, days: {} };
+    stats = { hours: {}, days: {}, minutes: {} };
 }
 async function saveStats() { // escriptura atòmica: mai queda un fitxer a mitges si es talla el procés
     const tmp = STATS_FILE + '.tmp';
@@ -330,6 +337,12 @@ let seenHour = new Set(), seenHourKey = '';
 let seenDay = new Set(), seenDayKey = '';
 let statsDirty = false;
 const hourKey = t => new Date(t).toISOString().slice(0, 13);
+const minKey = t => new Date(t).toISOString().slice(0, 16);
+// Per minut: [visites, pic de persones connectades]. Es conserven 30 dies.
+const minBucket = now => stats.minutes[minKey(now)] ||= [0, 0];
+const inc = (obj, key, max = 30) => { if (Object.keys(obj).length < max || obj[key]) obj[key] = (obj[key] || 0) + 1; };
+const recent = [];            // últimes visites (només memòria): hora, dispositiu, idioma, país, origen. Sense IP ni identificadors
+const lastPing = new Map();   // rei -> hora de l'últim ping rebut (memòria)
 
 function hourBucket(now) {
     const k = hourKey(now);
@@ -367,6 +380,7 @@ function handleHit(req, res) {
         const now = Date.now();
         countAnonVisitor(req, now);
         if (live.size < 100000) live.set(e.s, now);
+        const mb = minBucket(now); mb[1] = Math.max(mb[1], live.size);
         const b = hourBucket(now);
         if (!seenHour.has(e.s)) { seenHour.add(e.s); b.active++; }
         b.peak = Math.max(b.peak, live.size);
@@ -383,7 +397,18 @@ function handleHit(req, res) {
         }
         if (e.t === 'view') {
             b.views++;
+            mb[0]++;
             const d0 = dayBucket(dk0); d0.views++;
+            const al = String(req.headers['accept-language'] || '').split(',')[0].split('-')[0].toLowerCase();
+            const lang = /^[a-z]{2,3}$/.test(al) ? al : '';
+            const ccRaw = String(req.headers['cf-ipcountry'] || '').toUpperCase();
+            const cc = /^[A-Z]{2}$/.test(ccRaw) && ccRaw !== 'XX' && ccRaw !== 'T1' ? ccRaw : '';
+            const ref = /^[a-z0-9.-]{1,40}$/i.test(e.ref || '') ? e.ref.toLowerCase() : '';
+            if (lang) inc(b.lang ||= {}, lang);
+            if (cc) inc(b.cc ||= {}, cc);
+            if (ref) inc(d0.ref ||= {}, ref);
+            recent.push({ t: now, dev: /Mobi|Android|iPhone|iPad/i.test(req.headers['user-agent'] || '') ? 'm' : 'd', lang, cc, src: /^[a-z0-9_-]{1,16}$/i.test(e.src || '') ? e.src : '', ref });
+            if (recent.length > 150) recent.shift();
             // Origen opcional (?src=cartell): per saber quin cartell/QR/xarxa porta visitants
             if (/^[a-z0-9_-]{1,16}$/i.test(e.src || '') && (Object.keys(d0.src).length < 20 || d0.src[e.src])) d0.src[e.src] = (d0.src[e.src] || 0) + 1;
             if (/Mobi|Android|iPhone|iPad/i.test(req.headers['user-agent'] || '')) b.mobile++; else b.desktop++;
@@ -406,9 +431,12 @@ setInterval(() => {
     for (const [sid, t] of live) if (now - t > 75000) live.delete(sid);
     const b = hourBucket(now);
     if (live.size > b.peak) { b.peak = live.size; statsDirty = true; }
-    const cutoff = hourKey(now - 14 * 86400000);
+    const mb = minBucket(now); if (live.size > mb[1]) { mb[1] = live.size; statsDirty = true; }
+    const minCut = minKey(now - 30 * 86400000); // minuts: 30 dies
+    for (const k of Object.keys(stats.minutes)) if (k < minCut) delete stats.minutes[k];
+    const cutoff = hourKey(now - 180 * 86400000); // hores: 180 dies
     for (const k of Object.keys(stats.hours)) if (k < cutoff) delete stats.hours[k];
-    const dayCut = new Date(now - 90 * 86400000).toISOString().slice(0, 10);
+    const dayCut = new Date(now - 730 * 86400000).toISOString().slice(0, 10);
     for (const k of Object.keys(stats.days)) if (k < dayCut) delete stats.days[k];
     if (statsDirty) {
         statsDirty = false;
@@ -418,39 +446,14 @@ setInterval(() => {
 
 const esc = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+const statsPage = require('./statspage');
 function handleStats(req, res, query, pathname) {
     const given = Buffer.from(String(req.headers['x-stats-key'] || query.key || ''));
     const want = Buffer.from(STATS_KEY);
     if (!STATS_KEY || given.length !== want.length || !crypto.timingSafeEqual(given, want)) { res.writeHead(404); return res.end('Not Found'); }
-    const now = Date.now();
-    const rows = [];
-    for (let i = 0; i < 24; i++) {
-        const k = hourKey(now - i * 3600000);
-        rows.push({ hour: k, ...(stats.hours[k] || { views: 0, active: 0, peak: 0, mobile: 0, desktop: 0, consentYes: 0, consentNo: 0, opens: {} }) });
-    }
-    const opens = {};
-    let views = 0, mobile = 0, desktop = 0, yes = 0, no = 0, peak = 0, beats = 0, sessions = 0, errors = 0, homes = 0, favs = 0;
-    for (const r of rows) {
-        beats += r.beats || 0; sessions += r.active || 0; errors += r.errors || 0; homes += r.homes || 0; favs += r.favs || 0;
-        views += r.views; mobile += r.mobile; desktop += r.desktop; yes += r.consentYes; no += r.consentNo; peak = Math.max(peak, r.peak);
-        for (const k of Object.keys(r.opens)) opens[k] = (opens[k] || 0) + r.opens[k];
-    }
-    const avgMin = sessions ? Math.round(beats * 0.5 / sessions * 10) / 10 : 0; // cada "beat" = 30 s a la pantalla
-    const summary = { liveNow: live.size, last24h: { views, sessions, avgMinutesPerSession: avgMin, peakConcurrent: peak, mobile, desktop, consentAccepted: yes, consentRejected: no, homesMarked: homes, favs, clientErrors: errors, kingOpens: opens }, days: stats.days, hours: rows };
-    res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('X-Robots-Tag', 'noindex');
-    if (pathname === '/stats.json') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify(summary)); }
-    const tr = rows.map(r => `<tr><td>${esc(r.hour)}</td><td>${r.views}</td><td>${r.active}</td><td>${r.peak}</td><td>${r.mobile}/${r.desktop}</td></tr>`).join('');
-    const days = Object.entries(stats.days).sort().slice(-14).map(([d, v]) => `<tr><td>${esc(d)}</td><td>${v.anon || 0}</td><td>${v.visitors || 0}</td><td>${v.views || 0}</td><td>${esc(Object.entries(v.homes || {}).map(([k, n]) => k + ' ' + n).join(' · ') || '—')}</td><td>${esc(Object.entries(v.src || {}).map(([k, n]) => k + ' ' + n).join(' · ') || '—')}</td></tr>`).join('');
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Estadístiques</title>
-<style>body{font:15px system-ui;max-width:720px;margin:24px auto;padding:0 16px}table{border-collapse:collapse;width:100%;margin:8px 0 24px}td,th{border-bottom:1px solid #ddd;padding:6px 8px;text-align:right}th:first-child,td:first-child{text-align:left}</style>
-<h1>Estadístiques</h1>
-<p><b>${live.size}</b> persones connectades ara · <b>${views}</b> visites 24 h · pic simultani <b>${peak}</b> · mòbil/ordinador ${mobile}/${desktop} · cookies acceptades/rebutjades ${yes}/${no}</p>
-<p>Sessions ${sessions} · ~${avgMin} min de mitjana · cases marcades ${homes} · reis seguits ${favs} · <b>errors del navegador ${errors}</b></p>
-<p>Reis consultats (24 h): ${Object.entries(opens).map(([k, v]) => esc(k) + ' ' + v).join(' · ') || '—'}</p>
-<h2>Per hora (UTC)</h2><table><tr><th>Hora</th><th>Visites</th><th>Sessions</th><th>Pic</th><th>Mòbil/PC</th></tr>${tr}</table>
-<h2>Per dia</h2><table><tr><th>Dia</th><th>Visitants únics (sense cookie)</th><th>Amb cookie</th><th>Visites</th><th>Cases per ruta</th><th>Origen (?src=)</th></tr>${days || '<tr><td>—</td><td></td><td></td><td></td><td></td><td></td></tr>'}</table>`);
+    const r = statsPage.render({ pathname, query, stats, live, recent, lastPing, now: Date.now() });
+    res.writeHead(r.status, r.headers);
+    res.end(r.body);
 }
 
 // ============================================================
@@ -497,19 +500,7 @@ const GEO_URL = process.env.GEOCODER_URL || 'https://nominatim.openstreetmap.org
 const GEO_UA = `ReisOrient/1.0 (+https://github.com/oriol-ferret/ReisOrient${process.env.NOMINATIM_EMAIL ? '; ' + process.env.NOMINATIM_EMAIL : ''})`;
 const GEO_BBOX = (process.env.GEO_BBOX || '40.4,0.1,42.9,3.4').split(',').map(Number); // minLat,minLon,maxLat,maxLon
 // Zona permesa: l'entorn de les rutes (+~600 m). Així l'endpoint no serveix de proxy obert a tot el món.
-let GEO_ZONE = GEO_BBOX;
-try {
-    let minLat = 90, minLon = 180, maxLat = -90, maxLon = -180;
-    const walk = c => {
-        if (typeof c[0] === 'number') { minLon = Math.min(minLon, c[0]); maxLon = Math.max(maxLon, c[0]); minLat = Math.min(minLat, c[1]); maxLat = Math.max(maxLat, c[1]); }
-        else c.forEach(walk);
-    };
-    const feats = g => g.type === 'FeatureCollection' ? g.features : [g];
-    for (const f of fs.readdirSync(__dirname).filter(n => /^ruta.*\.geojson$/.test(n))) {
-        for (const ft of feats(JSON.parse(fs.readFileSync(path.join(__dirname, f), 'utf8')))) walk((ft.geometry || ft).coordinates);
-    }
-    if (minLat <= maxLat) GEO_ZONE = [minLat - 0.006, minLon - 0.008, maxLat + 0.006, maxLon + 0.008];
-} catch (e) { /* es fa servir GEO_BBOX */ }
+let GEO_ZONE = GEO_BBOX; // s'actualitza amb les rutes de la configuració (applyZone)
 
 const geoCache = new Map();
 const geoInflight = new Map();
@@ -580,7 +571,28 @@ const TILE_MIN_Z = 13, TILE_MAX_Z = 18;
 const TILE_UA = `ReisOrient/1.0 (+https://github.com/oriol-ferret/ReisOrient${process.env.NOMINATIM_EMAIL ? '; ' + process.env.NOMINATIM_EMAIL : ''})`;
 // Zona de mosaics: les rutes + 0,032° N/S i 0,047° E/O (~3,5 km). Ha de contenir l'àrea que el client deixa veure
 // (MAP_PAD a index.html: 0,03 / 0,045). Fora, 404: l'endpoint no és un proxy obert de tot el món.
-const TILE_ZONE = [GEO_ZONE[0] - 0.026, GEO_ZONE[1] - 0.039, GEO_ZONE[2] + 0.026, GEO_ZONE[3] + 0.039];
+let TILE_ZONE = [GEO_ZONE[0] - 0.026, GEO_ZONE[1] - 0.039, GEO_ZONE[2] + 0.026, GEO_ZONE[3] + 0.039];
+
+// ============================================================
+// Configuració editable (reis i rutes) — es gestiona des de /admin i es desa al volum de dades
+// ============================================================
+const configMod = require('./config');
+const adminMod = require('./admin');
+function applyZone(cfg) {
+    const b = configMod.bboxOf(cfg);
+    GEO_ZONE = b ? [b[0] - 0.006, b[1] - 0.008, b[2] + 0.006, b[3] + 0.008] : GEO_BBOX;
+    TILE_ZONE = [GEO_ZONE[0] - 0.026, GEO_ZONE[1] - 0.039, GEO_ZONE[2] + 0.026, GEO_ZONE[3] + 0.039];
+}
+const appConfig = configMod.create({
+    dataDir: DATA_DIR, rootDir: __dirname,
+    onChange: cfg => {
+        applyZone(cfg);
+        version++; for (const k in snapCache) delete snapCache[k]; // els clients veuen el canvi (cfgv) al següent sondeig
+        staticCache.clear();                                           // l'HTML porta la configuració incrustada
+    },
+});
+const ADMIN_KEY = process.env.ADMIN_KEY || STATS_KEY; // si no hi ha ADMIN_KEY, es reutilitza STATS_KEY
+const adminApi = adminMod.create({ config: appConfig, adminKey: ADMIN_KEY, limited, clientIp, safeEqual });
 const lon2x = (lon, z) => Math.floor((lon + 180) / 360 * 2 ** z);
 const lat2y = (lat, z) => { const r = lat * Math.PI / 180; return Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 2 ** z); };
 // PROVA TEMPORAL: TILE_UNLIMITED=1 desactiva el límit de zona i zoom (qualsevol lloc del món). Treure la variable per tornar-hi.
@@ -687,6 +699,7 @@ async function handle(req, res) {
     // perquè les URL relatives (api/…, rutes) funcionin igual.
     if (pathname === '/demo/') { res.writeHead(301, { Location: '../demo' }); return res.end(); }
     if (pathname === '/demo') pathname = '/index.html';
+    if (pathname === '/admin') pathname = '/admin.html';
 
     if (pathname === '/health' || req.method === 'HEAD') {
         res.writeHead(200);
@@ -698,7 +711,17 @@ async function handle(req, res) {
         if (limited('hit:' + clientIp(req), 1500)) { res.writeHead(204); return res.end(); }
         return handleHit(req, res);
     }
-    if (pathname === '/stats' || pathname === '/stats.json') return handleStats(req, res, query, pathname);
+    if (pathname === '/stats' || pathname === '/stats.json' || pathname === '/stats.csv') return handleStats(req, res, query, pathname);
+
+    // Administració de rutes i reis (només amb clau) i traçats públics de les rutes actives
+    if (pathname.startsWith('/api/admin/')) { if (await adminApi.handle(req, res, pathname)) return; }
+    const rm = /^\/api\/route\/([a-z0-9-]{1,24})\.geojson$/.exec(pathname);
+    if (rm && req.method === 'GET') {
+        const buf = appConfig.readRoute(rm[1]);
+        if (!buf) { res.writeHead(404); return res.end(); }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': buf.length, 'Cache-Control': 'public, max-age=3600', 'Access-Control-Allow-Origin': '*' });
+        return res.end(buf);
+    }
 
     // Pings
     if ((req.method === 'POST' || (req.method === 'GET' && query.id)) && limited('ping:' + clientIp(req), 300)) {

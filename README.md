@@ -176,3 +176,17 @@ Un cop per clon: `npm run setup-hooks`. Abans de cada commit s'executa `tools/pr
 Anònimes i pròpies (`/stats?key=STATS_KEY`): visites, sessions, minuts per sessió, pic simultani, mòbil/PC, reis consultats i seguits, **cases marcades per ruta** (només el nom de la ruta, mai la ubicació), errors del navegador, visitants únics per dia (només amb cookie acceptada) i origen de les visites amb `?src=` (ex.: `https://…/tracker/?src=cartell`, útil per a QR i xarxes). Es conserven 14 dies per hores i 90 per dies. Si el navegador envia GPC/DNT no es mostra el bàner ni es desa cap cookie.
 
 Visitants únics sense cookie: el servidor fa un hash (sal aleatòria del dia, només a memòria + IP + navegador) i només compta empremtes diferents; no desa ni la IP ni el hash. Amb cookie acceptada (`ro_vid`) es compten a part els visitants que tornen en dies diferents.
+
+`/stats?key=…&range=1h|3h|6h|24h|48h` mostra gràfiques per minut (connectats i visites), hora exacta de les últimes visites (hora de Madrid, a memòria i sense IP), idiomes, països (només amb Cloudflare davant: capçalera `CF-IPCountry`), webs d'origen, senyal dels mòbils dels reis i taules per hora i per dia. `/stats.csv` descarrega la sèrie per minuts per a un full de càlcul.
+
+## Administració de rutes i reis (`/admin`)
+
+Entra a `https://el-teu-domini/tracker/admin` amb la clau `ADMIN_KEY` (si no la defineixes, es reutilitza `STATS_KEY`). Des d'allà pots afegir, editar, ordenar i eliminar **rutes** (nom, color, rei assignat i traçat GeoJSON amb vista prèvia al mapa) i **reis** (identificador del dispositiu de Traccar, nom, color i icona). Només s'accepten traçats de tipus línia (`LineString`/`MultiLineString`), amb coordenades `[longitud, latitud]`, fins a 1,5 MB i 20.000 punts.
+
+- La configuració es desa al volum (`/app/data/config.json` i `/app/data/routes/*.geojson`), així que **sobreviu als redesplegaments**. La primera vegada s'omple amb les 4 rutes que ja hi havia (`ruta_*.geojson` de l'arrel).
+- Els visitants reben els canvis sols: el mapa detecta que ha canviat la configuració i es recarrega.
+- Seguretat: sessió de 8 h en cookie `HttpOnly` + `SameSite=Strict`, límit de 8 intents cada 15 min per IP, i per modificar cal la capçalera `X-Requested-With`. Les rutes eliminades es conserven al servidor com a `*.geojson.deleted`.
+
+## Estadístiques
+
+`/stats?key=…` té tres pestanyes: **Ara** (temps real i gràfiques), **Comparar** (dos dies hora per hora) i **Resum** (text per a la review, imprimible). Es conserven minuts 30 dies, hores 180 dies i dies 2 anys, i es poden descarregar en CSV (`/stats.csv?kind=minutes|hours|days`) o JSON.
