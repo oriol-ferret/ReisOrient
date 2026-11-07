@@ -570,6 +570,8 @@
         // 🗺️ INICIALIZACIÓN DEL MAPA
         // ============================================================
 
+        // PROVA TEMPORAL: true = mapa lliure (sense límits de zoom ni de zona). Tornar a false per activar els límits.
+        const FREE_MAP = true;
         const map = L.map('map', {
             zoomControl: false,
             maxBoundsViscosity: 1.0,   // el límit del mapa és un mur: no es pot arrossegar fora i veure el blanc
@@ -582,7 +584,7 @@
         // Així els visitants no fan cap petició externa i OSM no rep milers de peticions.
         const baseTiles = L.tileLayer('tiles/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-            minZoom: 13, maxZoom: 18,
+            minZoom: FREE_MAP ? 3 : 13, maxZoom: FREE_MAP ? 19 : 18,
         }).addTo(map);
         // Si un mosaic falla (xarxa fluixa, servidor ocupat), es reintenta fins a 3 cops en lloc de deixar un forat
         baseTiles.on('tileerror', e => {
@@ -598,13 +600,14 @@
         // (en una pantalla gran cal apropar-se més): així no es veu mai el fons en blanc sense mosaics.
         let areaBounds = null;
         function fitMinZoom() {
-            if (!areaBounds) return;
+            if (FREE_MAP || !areaBounds) return;
             const z = Math.min(18, Math.max(13, map.getBoundsZoom(areaBounds, true)));
             map.setMinZoom(z);
             if (map.getZoom() < z) map.setZoom(z);
         }
         function setMapArea(bounds) {
             areaBounds = bounds;
+            if (FREE_MAP) { map.setMinZoom(3); map.setMaxZoom(19); return; }
             map.setMaxBounds(bounds);
             fitMinZoom();
         }

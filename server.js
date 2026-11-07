@@ -535,7 +535,10 @@ const TILE_UA = `ReisOrient/1.0 (+https://github.com/oriol-ferret/ReisOrient${pr
 const TILE_ZONE = [GEO_ZONE[0] - 0.026, GEO_ZONE[1] - 0.039, GEO_ZONE[2] + 0.026, GEO_ZONE[3] + 0.039];
 const lon2x = (lon, z) => Math.floor((lon + 180) / 360 * 2 ** z);
 const lat2y = (lat, z) => { const r = lat * Math.PI / 180; return Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 2 ** z); };
+// PROVA TEMPORAL: TILE_UNLIMITED=1 desactiva el límit de zona i zoom (qualsevol lloc del món). Treure la variable per tornar-hi.
+const TILE_UNLIMITED = process.env.TILE_UNLIMITED === '1';
 function tileAllowed(z, x, y) {
+    if (TILE_UNLIMITED) return z >= 0 && z <= 19 && x >= 0 && y >= 0 && x < 2 ** z && y < 2 ** z;
     return z >= TILE_MIN_Z && z <= TILE_MAX_Z
         && x >= lon2x(TILE_ZONE[1], z) && x <= lon2x(TILE_ZONE[3], z)
         && y >= lat2y(TILE_ZONE[2], z) && y <= lat2y(TILE_ZONE[0], z);
