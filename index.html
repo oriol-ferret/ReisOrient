@@ -58,12 +58,12 @@
 
         /* ===== Header ===== */
         .header {
-            background: linear-gradient(135deg, var(--burgundy-dark), var(--burgundy));
-            padding: 12px 20px;
+            background: var(--burgundy-dark);
+            padding: 10px 16px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            box-shadow: var(--shadow);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
             z-index: 1000;
             flex-shrink: 0;
         }
@@ -75,35 +75,23 @@
         }
 
         .header__icon {
-            font-size: 1.6rem;
-            animation: float 2.5s ease-in-out infinite;
-        }
-
-        @keyframes float {
-
-            0%,
-            100% {
-                transform: translateY(0);
-            }
-
-            50% {
-                transform: translateY(-4px);
-            }
+            width: 28px;
+            height: 28px;
+            color: var(--gold-light);
+            flex-shrink: 0;
         }
 
         .header h1 {
             font-size: 1.1rem;
             font-weight: 700;
-            background: linear-gradient(90deg, var(--gold-light), var(--gold));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            letter-spacing: 0.5px;
+            color: var(--gold-light);
+            letter-spacing: 0.2px;
+            text-wrap: balance;
         }
 
         .header__subtitle {
             font-size: 0.75rem;
-            color: rgba(253, 246, 227, 0.6);
+            color: rgba(253, 246, 227, 0.75);
             font-weight: 400;
         }
 
@@ -130,13 +118,10 @@
 
         .status-dot.connected {
             background: #4ade80;
-            box-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
-            animation: pulse-dot 2s ease-in-out infinite;
         }
 
         .status-dot.searching {
             background: var(--gold);
-            animation: pulse-dot 1s ease-in-out infinite;
         }
 
         /* Botó de Refresc */
@@ -144,8 +129,8 @@
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
             color: white;
-            width: 32px;
-            height: 32px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -153,8 +138,12 @@
             cursor: pointer;
             transition: all 0.2s ease;
             margin-left: 8px;
-            outline: none;
             -webkit-tap-highlight-color: transparent;
+        }
+
+        .refresh-btn:focus-visible {
+            outline: 2px solid var(--gold-light);
+            outline-offset: 2px;
         }
 
         .refresh-btn:active {
@@ -185,18 +174,6 @@
             align-items: center;
         }
 
-        @keyframes pulse-dot {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.4;
-            }
-        }
-
         /* ===== Map ===== */
         #map {
             flex: 1;
@@ -205,11 +182,11 @@
 
         /* ===== Footer ===== */
         .footer {
-            background: linear-gradient(135deg, var(--burgundy-dark), var(--burgundy));
-            padding: 8px 20px;
+            background: var(--burgundy-dark);
+            padding: 8px 16px;
             text-align: center;
-            font-size: 0.7rem;
-            color: rgba(253, 246, 227, 0.5);
+            font-size: 0.75rem;
+            color: rgba(253, 246, 227, 0.8);
             z-index: 1000;
             flex-shrink: 0;
         }
@@ -226,50 +203,20 @@
         }
 
         .king-marker__inner {
-            width: 44px;
-            height: 44px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
-            background: linear-gradient(135deg, var(--gold-light), var(--gold));
-            border: 3px solid var(--burgundy);
+            border: 3px solid #fff;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.4rem;
-            box-shadow: 0 2px 12px rgba(212, 160, 23, 0.5);
-            animation: marker-glow 3s ease-in-out infinite;
+            color: #fff;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
         }
 
-        @keyframes marker-glow {
-
-            0%,
-            100% {
-                box-shadow: 0 2px 12px rgba(212, 160, 23, 0.5);
-            }
-
-            50% {
-                box-shadow: 0 2px 24px rgba(212, 160, 23, 0.8), 0 0 40px rgba(212, 160, 23, 0.3);
-            }
-        }
-
-        .king-marker__pulse {
-            position: absolute;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: rgba(212, 160, 23, 0.2);
-            animation: pulse-ring 2s ease-out infinite;
-        }
-
-        @keyframes pulse-ring {
-            0% {
-                transform: scale(0.6);
-                opacity: 1;
-            }
-
-            100% {
-                transform: scale(1.4);
-                opacity: 0;
-            }
+        .king-marker__inner svg {
+            width: 20px;
+            height: 20px;
         }
 
         /* ===== Loading overlay ===== */
@@ -291,8 +238,9 @@
         }
 
         .loading-overlay__icon {
-            font-size: 3rem;
-            animation: float 2s ease-in-out infinite;
+            width: 48px;
+            height: 48px;
+            color: var(--gold-light);
         }
 
         .loading-overlay__text {
@@ -336,6 +284,167 @@
             line-height: 1.5 !important;
         }
 
+
+        /* ===== Stage: mapa + dock ===== */
+        .stage { position: relative; flex: 1; min-height: 0; display: flex; }
+        .stage #map { flex: 1; }
+
+        .sim-chip {
+            display: none;
+            background: var(--gold);
+            color: #2a1500;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            padding: 4px 8px;
+            border-radius: 6px;
+            margin-right: 8px;
+        }
+        body.is-sim .sim-chip { display: inline-block; }
+
+        /* ===== Dock de seguiment ===== */
+        .dock {
+            position: absolute;
+            left: 0; right: 0; bottom: 22px;
+            z-index: 800;
+            display: flex;
+            gap: 8px;
+            padding: 0 8px 8px;
+            overflow-x: auto;
+            scroll-snap-type: x proximity;
+            scrollbar-width: none;
+            pointer-events: none;
+        }
+        .dock::-webkit-scrollbar { display: none; }
+
+        .track-card {
+            pointer-events: auto;
+            scroll-snap-align: start;
+            flex: 0 0 min(232px, 72vw);
+            text-align: left;
+            font: inherit;
+            color: var(--cream);
+            background: var(--burgundy-dark);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-top: 3px solid var(--c, var(--gold));
+            border-radius: 10px;
+            padding: 10px 12px 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+            display: grid;
+            gap: 4px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .track-card:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 2px; }
+        .track-card__name { font-weight: 700; font-size: 0.85rem; display: flex; justify-content: space-between; gap: 8px; }
+        .track-card__age { font-weight: 400; font-size: 0.72rem; color: rgba(253, 246, 227, 0.75); font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .track-card__street { font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .track-card__meta { font-size: 0.75rem; color: rgba(253, 246, 227, 0.8); font-variant-numeric: tabular-nums; }
+        .track-card.is-stale { opacity: 0.75; }
+
+        .dock--single .track-card { flex: 1 1 auto; max-width: 440px; margin: 0 auto; }
+        .track-card__fav { width: 14px; height: 14px; color: var(--gold-light); vertical-align: -2px; margin-right: 4px; }
+        .track-card__main { font-size: 1.15rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+        .track-card__main small { font-size: 0.78rem; font-weight: 400; color: rgba(253, 246, 227, 0.85); }
+
+        .home-fab {
+            position: absolute; z-index: 800; top: 62px; left: 10px;
+            width: 44px; height: 44px; border-radius: 8px;
+            background: #fff; color: var(--burgundy-dark);
+            border: 2px solid rgba(0, 0, 0, 0.25); cursor: pointer;
+            display: grid; place-items: center;
+        }
+        .home-fab svg { width: 22px; height: 22px; }
+        .home-fab.has-home { background: var(--gold); color: #2a1500; }
+        .home-fab:focus-visible { outline: 2px solid var(--burgundy); outline-offset: 2px; }
+
+        .home-marker {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: var(--cream); color: var(--burgundy-dark);
+            border: 3px solid var(--burgundy-dark);
+            display: grid; place-items: center;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+        }
+        .home-marker svg { width: 18px; height: 18px; }
+
+        .pickbar {
+            display: none; position: fixed; z-index: 1500; top: 70px; left: 50%; transform: translateX(-50%);
+            background: var(--burgundy-dark); color: var(--cream); border-radius: 12px; padding: 8px 8px 8px 16px;
+            align-items: center; gap: 12px; font-weight: 600; font-size: 0.9rem; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+            max-width: calc(100vw - 16px);
+        }
+        .pickbar.is-open { display: flex; }
+        .pickbar button { font: inherit; font-weight: 700; min-height: 40px; padding: 0 14px; border-radius: 8px; background: transparent; color: var(--cream); border: 1.5px solid var(--gold-light); cursor: pointer; }
+        body.is-picking #map { cursor: crosshair; }
+
+        .sheet__alt { background: transparent; color: var(--cream); border: 1.5px solid var(--gold-light); border-radius: 10px; padding: 11px; font: inherit; font-weight: 700; cursor: pointer; }
+        .sheet__alt:focus-visible, .pickbar button:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 2px; }
+        .sheet__big { font-size: 1.6rem; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
+        .sheet__note { font-size: 0.85rem; color: rgba(253, 246, 227, 0.85); }
+
+        /* ===== Modal de detall ===== */
+        .sheet {
+            border: 0;
+            padding: 0;
+            background: var(--burgundy-dark);
+            color: var(--cream);
+            width: min(440px, 100vw);
+            max-width: 100vw;
+            margin: auto auto 0;
+            border-radius: 16px 16px 0 0;
+            box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.35);
+        }
+        @media (min-width: 640px) { .sheet { margin: auto; border-radius: 16px; } }
+        .sheet::backdrop { background: rgba(20, 5, 12, 0.55); }
+        .sheet[open] { animation: sheet-in 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes sheet-in { from { transform: translateY(24px); opacity: 0; } }
+        .sheet__body { padding: 18px 18px 20px; display: grid; gap: 14px; }
+        .sheet__head { display: flex; align-items: center; gap: 10px; }
+        .sheet__swatch { width: 14px; height: 14px; border-radius: 50%; background: var(--c); flex-shrink: 0; }
+        .sheet h2 { font-size: 1.15rem; flex: 1; }
+        .sheet__close { background: rgba(255, 255, 255, 0.1); border: 0; color: var(--cream); width: 40px; height: 40px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; }
+        .sheet__close:focus-visible, .sheet__go:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 2px; }
+        .sheet__where { font-size: 1.3rem; font-weight: 700; line-height: 1.2; text-wrap: balance; }
+        .sheet__from { font-size: 0.85rem; color: rgba(253, 246, 227, 0.8); margin-top: 4px; }
+        .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+        .facts dt { font-size: 0.72rem; color: rgba(253, 246, 227, 0.75); }
+        .facts dd { font-size: 1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+        .sheet__go { background: var(--gold); color: #2a1500; border: 0; border-radius: 10px; padding: 12px; font: inherit; font-weight: 700; cursor: pointer; }
+
+        .leaflet-tooltip.route-tip { font-family: 'Outfit', sans-serif; }
+
+
+        /* ===== Consentiment de cookies ===== */
+        .consent {
+            position: fixed;
+            left: 8px; right: 8px; bottom: 8px;
+            z-index: 2000;
+            max-width: 520px;
+            margin: 0 auto;
+            background: var(--burgundy-dark);
+            color: var(--cream);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 14px;
+            padding: 14px 16px 16px;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+            display: none;
+            gap: 10px;
+            font-size: 0.85rem;
+            line-height: 1.45;
+        }
+        .consent.is-open { display: grid; }
+        .consent h2 { font-size: 0.95rem; }
+        .consent details { color: rgba(253, 246, 227, 0.85); font-size: 0.8rem; }
+        .consent summary { cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+        .consent__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .consent__actions button {
+            font: inherit; font-weight: 700; min-height: 44px; border-radius: 10px; cursor: pointer;
+            background: transparent; color: var(--cream); border: 1.5px solid var(--gold-light);
+        }
+        .consent__actions button:focus-visible, .consent summary:focus-visible, .footer__link:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 2px; }
+        .footer__link { background: none; border: 0; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; margin-left: 8px; }
+
         /* ===== Responsive ===== */
         @media (max-width: 400px) {
             .header h1 {
@@ -353,7 +462,7 @@
 
     <!-- Loading screen -->
     <div class="loading-overlay" id="loading">
-        <div class="loading-overlay__icon">👑</div>
+        <div class="loading-overlay__icon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 18.5h18l1-11-5.2 4.3L12 4.5 7.2 11.8 2 7.5z"/><rect x="3" y="19.5" width="18" height="2" rx="1"/></svg></div>
         <div class="loading-overlay__text">Connectant amb els Reis Mags…</div>
         <div class="loading-overlay__spinner"></div>
     </div>
@@ -362,13 +471,14 @@
         <!-- Header -->
         <header class="header">
             <div class="header__title">
-                <span class="header__icon">👑</span>
+                <span class="header__icon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 18.5h18l1-11-5.2 4.3L12 4.5 7.2 11.8 2 7.5z"/><rect x="3" y="19.5" width="18" height="2" rx="1"/></svg></span>
                 <div>
                     <h1>Cavalcada de Reis — En Directe</h1>
                     <div class="header__subtitle">Seguiment en temps real</div>
                 </div>
             </div>
             <div class="status-container">
+                <span class="sim-chip" id="simChip">Simulació</span>
                 <div class="status-badge" id="statusBadge">
                     <div class="status-dot" id="statusDot"></div>
                     <span id="statusText">Connectant…</span>
@@ -380,12 +490,35 @@
         </header>
 
         <!-- Map -->
-        <div id="map"></div>
+        <div class="stage">
+            <div id="map"></div>
+            <button type="button" class="home-fab" id="homeFab" aria-label="Casa meva" title="Casa meva"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3 2 12h3v8h5v-5h4v5h5v-8h3z"/></svg></button>
+            <div class="dock" id="dock" role="list" aria-label="Estat dels Reis"></div>
+        </div>
 
         <!-- Footer -->
         <footer class="footer">
-            ⚠️ La ubicació pot tenir un retard d'uns <span>~30 segons</span> a causa de la cobertura mòbil.
+            La ubicació pot tenir un retard d'uns <span>~30 segons</span> a causa de la cobertura mòbil.<button type="button" class="footer__link" id="privacyBtn">Privadesa</button>
         </footer>
+    </div>
+
+    <div class="pickbar" id="pickbar" role="status"><span>Toca el mapa on vius</span><button type="button" id="pickCancel">Cancel·lar</button></div>
+
+    <dialog class="sheet" id="sheet" aria-labelledby="sheetTitle">
+        <div class="sheet__body" id="sheetBody"></div>
+    </dialog>
+
+    <div class="consent" id="consent" role="dialog" aria-labelledby="consentTitle">
+        <h2 id="consentTitle">Cookies i estadístiques</h2>
+        <p>Comptem les visites de forma anònima, sense dades personals ni IP. Si acceptes, desem una cookie pròpia per saber quantes persones diferents ens visiten. Si la rebutges, el mapa funciona igual.</p>
+        <details>
+            <summary>Més informació</summary>
+            <p>Mesurem pàgines vistes, persones connectades alhora, tipus de dispositiu (mòbil o ordinador) i quin rei es consulta. No fem servir publicitat ni compartim res amb tercers. Cookies: <b>ro_vid</b> (identificador aleatori, 13 mesos, només si acceptes) i <b>ro_consent</b> (recorda la teva elecció, 13 mesos). La ubicació de casa teva i el rei que segueixes es desen només al teu dispositiu i no s'envien enlloc. Pots canviar-ho a «Privadesa», al peu de pàgina.</p>
+        </details>
+        <div class="consent__actions">
+            <button type="button" data-consent="0">Rebutjar</button>
+            <button type="button" data-consent="1">Acceptar</button>
+        </div>
     </div>
 
     <!-- Leaflet JS -->
@@ -417,7 +550,7 @@
             trailSegments: 8,           // Nombre de segments del degradat
 
             // 🔄 Taxa de refresc (Polling)
-            refreshIntervalSecs: 30,
+            refreshIntervalSecs: 10,
         };
 
         // ============================================================
@@ -429,50 +562,66 @@
         }).setView(CONFIG.mapCenter, CONFIG.mapZoom);
 
         // Control de zoom abajo-derecha (menos intrusivo en móvil)
-        L.control.zoom({ position: 'bottomright' }).addTo(map);
+        L.control.zoom({ position: 'topright' }).addTo(map);
 
         // Tiles — estilo limpio y claro (Voyager de CARTO) que resalta bien las calles
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
-            maxZoom: 19,
-        }).addTo(map);
+        // CARTO ara exigeix API key. Si es defineix MAPTILER_KEY s'usa MapTiler (recomanat per
+        // a alta càrrega, clau gratuïta a maptiler.com); si no, OpenStreetMap (sense clau, però
+        // la seva política n'impedeix l'ús intensiu).
+        const MAPTILER_KEY = '';
+        const tileLayer = MAPTILER_KEY
+            ? L.tileLayer(`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`, {
+                attribution: '&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+                maxZoom: 19, tileSize: 512, zoomOffset: -1,
+            })
+            : L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                maxZoom: 19,
+            });
+        tileLayer.addTo(map);
 
         // ============================================================
         // 🗺️ TRAÇAT DE LES RUTES OFICIALS (GeoJSON)
         // ============================================================
-        const routesConfig = {
-            Melcior: { file: 'ruta_melcior.geojson', color: '#d4a017' },
-            Gaspar: { file: 'ruta_gaspar.geojson', color: '#ab2330' },
-            Baltasar: { file: 'ruta_baltasar.geojson', color: '#228b22' },
-            Estrella: { file: 'ruta_estrella.geojson', color: '#38bdf8' } // Azul cielo para mejor contraste en mapa claro
-        };
+        // Afegeix una ruta nova = una entrada aquí (nom visible, color i fitxer GeoJSON a l'arrel).
+        const ROUTES = [
+            { id: 'ruta1', tracker: 'Melcior', name: 'Ruta 1', color: '#b8860b', file: 'ruta_melcior.geojson' },
+            { id: 'ruta2', tracker: 'Gaspar', name: 'Ruta 2', color: '#ab2330', file: 'ruta_gaspar.geojson' },
+            { id: 'ruta3', tracker: 'Baltasar', name: 'Ruta 3', color: '#228b22', file: 'ruta_baltasar.geojson' },
+            { id: 'ruta4', tracker: 'Estrella', name: 'Ruta 4', color: '#0e7490', file: 'ruta_estrella.geojson' },
+            { id: 'ruta5', name: 'Ruta 5', color: '#7c3aed', file: 'ruta_5.geojson' },
+            { id: 'ruta6', name: 'Ruta 6', color: '#c2410c', file: 'ruta_6.geojson' },
+            { id: 'ruta7', name: 'Ruta 7', color: '#be185d', file: 'ruta_7.geojson' },
+        ];
 
-        for (const kingId in routesConfig) {
-            const config = routesConfig[kingId];
-            fetch(config.file)
-                .then(response => response.json())
+        // Capes de rutes (una per ruta) — s'afegeixen al control de capes més avall
+        const routeLayers = {};
+        ROUTES.forEach(route => {
+            const layer = L.layerGroup().addTo(map);
+            routeLayers[route.name] = layer;
+            route.ready = fetch(route.file)
+                .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
                 .then(data => {
                     L.geoJSON(data, {
-                        style: {
-                            color: config.color,
-                            weight: 4,
-                            opacity: 0.6,
-                            dashArray: '6, 6', // Línea punteada para la ruta planificada
-                            lineCap: 'round'
-                        }
-                    }).addTo(map);
+                        style: { color: route.color, weight: 4, opacity: route.tracker ? 0.3 : 0.7, dashArray: '6, 6', lineCap: 'round' },
+                        onEachFeature: (_, l) => l.bindTooltip(route.name, { sticky: true, className: 'route-tip' }),
+                    }).addTo(layer);
+                    prepareRoute(route, data);
                 })
-                .catch(error => console.warn(`Ruta oficial no trobada per a ${kingId} (${config.file}):`, error));
-        }
+                .catch(err => console.warn(`Ruta no carregada (${route.file}):`, err));
+        });
 
         // ============================================================
         // 👑 ESTADO DE LOS REYES (Multi-Rey)
         // ============================================================
 
+        const CROWN_SVG = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 18.5h18l1-11-5.2 4.3L12 4.5 7.2 11.8 2 7.5z"/><rect x="3" y="19.5" width="18" height="2" rx="1"/></svg>`;
+        const STAR_SVG = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.7 7.3L12 17.8 5.7 21.5l1.7-7.3L2 9.5l7.1-.6z"/></svg>`;
+
         const kingsState = {
             Melcior: {
                 name: 'Rei Melcior',
-                icon: '👑',
+                icon: CROWN_SVG,
                 color: '#d4a017', // Dorado
                 marker: null,
                 trailPoints: [],
@@ -482,7 +631,7 @@
             },
             Gaspar: {
                 name: 'Rei Gaspar',
-                icon: '👑',
+                icon: CROWN_SVG,
                 color: '#ab2330', // Granate/Carmesí
                 marker: null,
                 trailPoints: [],
@@ -492,7 +641,7 @@
             },
             Baltasar: {
                 name: 'Rei Baltasar',
-                icon: '👑',
+                icon: CROWN_SVG,
                 color: '#228b22', // Verde
                 marker: null,
                 trailPoints: [],
@@ -502,8 +651,8 @@
             },
             Estrella: {
                 name: 'Estrella d\'Orient',
-                icon: '⭐',
-                color: '#f0f8ff', // Blanco Plata
+                icon: STAR_SVG,
+                color: '#0e7490', // Azul petróleo (contrast sobre borde blanco)
                 marker: null,
                 trailPoints: [],
                 trailGroup: L.layerGroup().addTo(map),
@@ -524,21 +673,20 @@
             // Afegir la capa del Rei al control de capes (marcador i rastre junts)
             const kingLayerGroup = L.layerGroup([king.trailGroup]).addTo(map);
             king.layerGroup = kingLayerGroup;
-            overlayMaps[king.icon + " " + king.name] = kingLayerGroup;
+            overlayMaps[king.name] = kingLayerGroup;
         }
 
         // Afegir el control de capes al mapa (a dalt a l'esquerra per no tapar el zoom)
-        L.control.layers(null, overlayMaps, { position: 'topleft', collapsed: true }).addTo(map);
+        L.control.layers(null, { ...routeLayers, ...overlayMaps }, { position: 'topleft', collapsed: true }).addTo(map);
 
         function getKingIcon(king) {
             return L.divIcon({
                 className: 'king-marker',
                 html: `
-                    <div class="king-marker__pulse" style="background: ${king.color}33"></div>
-                    <div class="king-marker__inner" style="background: linear-gradient(135deg, ${king.color}dd, ${king.color}); box-shadow: 0 2px 12px ${king.color}80; border-color: ${king.color};">${king.icon}</div>
+                    <div class="king-marker__inner" style="background: ${king.color};">${king.icon}</div>
                 `,
-                iconSize: [60, 60],
-                iconAnchor: [30, 30],
+                iconSize: [40, 40],
+                iconAnchor: [20, 20],
             });
         }
 
@@ -547,7 +695,7 @@
         async function fetchStreetName(lat, lng, kingId) {
             const now = Date.now();
             const king = kingsState[kingId];
-            if (now - king.lastAddressFetch < 2000) return king.currentStreet;
+            if (now - king.lastAddressFetch < 12000) return king.currentStreet;
             king.lastAddressFetch = now;
 
             try {
@@ -558,10 +706,15 @@
                 if (data && data.address) {
                     const road = data.address.road || data.address.pedestrian || "";
                     const suburb = data.address.suburb || data.address.village || data.address.town || data.address.city || "";
+                    let next = king.currentStreet;
                     if (road) {
-                        king.currentStreet = road + (suburb ? `, ${suburb}` : '');
+                        next = road + (suburb ? `, ${suburb}` : '');
                     } else if (data.display_name) {
-                        king.currentStreet = data.display_name.split(',')[0];
+                        next = data.display_name.split(',')[0];
+                    }
+                    if (next !== king.currentStreet) {
+                        if (king.currentStreet !== "Ubicació desconeguda") king.prevStreet = king.currentStreet;
+                        king.currentStreet = next;
                     }
                 }
             } catch (error) {
@@ -590,21 +743,15 @@
             const king = kingsState[kingId];
             const latlng = L.latLng(lat, lng);
 
-            const generatePopupHTML = (streetName) => `
-                <strong>${king.icon} ${king.name}</strong><br>
-                📍 ${streetName}<br>
-                <small style="opacity:0.7">${lat.toFixed(5)}, ${lng.toFixed(5)}</small><br>
-                🕐 Última actualització: ${formatPointTime(timestamp)}
-            `;
-
             if (!king.marker) {
                 king.marker = L.marker(latlng, { icon: getKingIcon(king) })
-                    .addTo(king.layerGroup) // Afegir al LayerGroup específic del Rei en lloc del mapa general
-                    .bindPopup(generatePopupHTML('Buscant carrer...'));
+                    .addTo(king.layerGroup); // Afegir al LayerGroup específic del Rei en lloc del mapa general
+                king.marker.on('click', () => openSheet(kingId));
             } else {
                 king.marker.setLatLng(latlng);
-                king.marker.setPopupContent(generatePopupHTML(king.currentStreet));
             }
+            king.lastTs = timestamp || Date.now();
+            updateKingProgress(kingId);
 
             // Centrar el mapa en el primer ping de l'Estrella o de Melcior (Prioritat visual inicial)
             if (firstUpdate && (kingId === 'Estrella' || kingId === 'Melcior')) {
@@ -612,10 +759,8 @@
                 firstUpdate = false;
             }
 
-            const newStreet = await fetchStreetName(lat, lng, kingId);
-            if (king.marker) {
-                king.marker.setPopupContent(generatePopupHTML(newStreet));
-            }
+            await fetchStreetName(lat, lng, kingId);
+            renderKing(kingId);
         }
 
         // ============================================================
@@ -668,6 +813,416 @@
             }
         }
 
+
+        // ============================================================
+        // 📐 RUTES: posició del rei sobre la ruta i distància fins a casa
+        // ============================================================
+        const SIM = new URLSearchParams(location.search).has('sim') || /\/demo\/?$/.test(location.pathname);
+        if (SIM) document.body.classList.add('is-sim');
+
+        function prepareRoute(route, geo) {
+            const pts = [];
+            const walk = o => {
+                if (o.type === 'FeatureCollection') o.features.forEach(walk);
+                else if (o.type === 'Feature') walk(o.geometry);
+                else if (o.type === 'LineString') o.coordinates.forEach(c => pts.push([c[1], c[0]]));
+                else if (o.type === 'MultiLineString') o.coordinates.forEach(l => l.forEach(c => pts.push([c[1], c[0]])));
+            };
+            walk(geo);
+            const cum = [0];
+            for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + L.latLng(pts[i - 1]).distanceTo(pts[i]));
+            route.coords = pts;
+            route.cum = cum;
+            route.length = cum[cum.length - 1] || 0;
+        }
+
+        // Projecta un punt sobre la ruta → distància recorreguda, desviació i punt exacte
+        function projectOnRoute(route, lat, lng) {
+            const k = Math.cos(lat * Math.PI / 180), M = 111320;
+            let best = null;
+            for (let i = 0; i < route.coords.length - 1; i++) {
+                const a = route.coords[i], b = route.coords[i + 1];
+                const ax = (a[1] - lng) * k, ay = a[0] - lat, bx = (b[1] - lng) * k, by = b[0] - lat;
+                const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+                const t = len2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2)) : 0;
+                const off = Math.hypot(ax + t * dx, ay + t * dy) * M;
+                if (!best || off < best.off) {
+                    best = { i, off, along: route.cum[i] + t * (route.cum[i + 1] - route.cum[i]),
+                             point: [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])] };
+                }
+            }
+            return best;
+        }
+
+        function pointAt(route, d) {
+            d = Math.max(0, Math.min(route.length, d));
+            let i = 0;
+            while (i < route.cum.length - 2 && route.cum[i + 1] < d) i++;
+            const seg = route.cum[i + 1] - route.cum[i] || 1;
+            const t = (d - route.cum[i]) / seg, a = route.coords[i], b = route.coords[i + 1];
+            return [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
+        }
+
+        // Velocitat mitjana dels últims 5 min (inclou les aturades de repartiment: és el ritme real del servei)
+        function serviceSpeed(king) {
+            const pts = king.trailPoints;
+            if (pts.length < 2) return 0;
+            const last = pts[pts.length - 1];
+            let dist = 0, firstTs = last.timestamp;
+            for (let i = pts.length - 1; i > 0 && last.timestamp - pts[i - 1].timestamp <= 300000; i--) {
+                const d = L.latLng(pts[i - 1].lat, pts[i - 1].lng).distanceTo([pts[i].lat, pts[i].lng]);
+                if (d >= 3) dist += d; // ignora el soroll del GPS quan està aturat
+                firstTs = pts[i - 1].timestamp;
+            }
+            const dt = (last.timestamp - firstTs) / 1000;
+            return dt >= 15 ? dist / dt : 0;
+        }
+
+        const fmtDist = m => m >= 1000 ? (m / 1000).toFixed(1).replace('.', ',') + ' km' : (Math.round(m / 10) * 10) + ' m';
+        const fmtAge = ts => { const s = Math.max(0, Math.round((Date.now() - ts) / 1000)); return s < 60 ? `fa ${s} s` : `fa ${Math.round(s / 60)} min`; };
+        const fmtClock = d => d.toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit' });
+        const routeOf = kingId => ROUTES.find(r => r.tracker === kingId && r.coords);
+
+        // ============================================================
+        // 🏠 CASA I REI FAVORIT (es desen només al dispositiu)
+        // ============================================================
+        const HOUSE_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3 2 12h3v8h5v-5h4v5h5v-8h3z"/></svg>';
+        const memStore = {};
+        const store = {
+            get(k) { try { return SIM ? (memStore[k] ?? null) : localStorage.getItem(k); } catch (e) { return memStore[k] ?? null; } },
+            set(k, v) { memStore[k] = v; if (!SIM) try { localStorage.setItem(k, v); } catch (e) { /* mode privat */ } },
+            del(k) { delete memStore[k]; if (!SIM) try { localStorage.removeItem(k); } catch (e) { /* res */ } },
+        };
+
+        let home = null;
+        try { const h = JSON.parse(store.get('ro_home')); if (h && Number.isFinite(h.lat) && Number.isFinite(h.lng)) home = h; } catch (e) { /* res */ }
+        let favorite = store.get('ro_fav');
+        if (!kingsState[favorite]) favorite = null;
+        let homeMarker = null;
+
+        const homeFab = document.getElementById('homeFab');
+        const pickbar = document.getElementById('pickbar');
+        let picking = false;
+
+        function drawHome() {
+            if (homeMarker) { homeMarker.remove(); homeMarker = null; }
+            homeFab.classList.toggle('has-home', !!home);
+            if (home) {
+                homeMarker = L.marker([home.lat, home.lng], {
+                    icon: L.divIcon({ className: '', html: `<div class="home-marker">${HOUSE_SVG}</div>`, iconSize: [36, 36], iconAnchor: [18, 18] }),
+                    keyboard: false,
+                }).addTo(map).bindTooltip('Casa teva');
+            }
+        }
+
+        function setHome(latlng, persist = true) {
+            home = { lat: latlng.lat, lng: latlng.lng };
+            if (persist) store.set('ro_home', JSON.stringify(home));
+            ROUTES.forEach(r => { r.hp = null; });
+            // Si encara no segueixes cap rei, proposem el que té la ruta més a prop de casa
+            if (!favorite) {
+                let best = null;
+                for (const r of ROUTES) {
+                    if (!r.tracker || !r.coords) continue;
+                    const off = projectOnRoute(r, home.lat, home.lng).off;
+                    if (!best || off < best.off) best = { id: r.tracker, off };
+                }
+                if (best && best.off < 250) { favorite = best.id; store.set('ro_fav', favorite); }
+            }
+            drawHome();
+            Object.keys(kingsState).forEach(updateKingProgress);
+        }
+
+        function clearHome() {
+            home = null;
+            store.del('ro_home');
+            drawHome();
+            Object.keys(kingsState).forEach(updateKingProgress);
+        }
+
+        function setFavorite(id) {
+            favorite = id;
+            if (id) store.set('ro_fav', id); else store.del('ro_fav');
+            Object.keys(kingsState).forEach(updateKingProgress);
+        }
+
+        function startPicking() {
+            picking = true;
+            document.body.classList.add('is-picking');
+            pickbar.classList.add('is-open');
+        }
+        function stopPicking() {
+            picking = false;
+            document.body.classList.remove('is-picking');
+            pickbar.classList.remove('is-open');
+        }
+        map.on('click', e => { if (picking) { setHome(e.latlng); stopPicking(); map.panTo(e.latlng); } });
+        document.getElementById('pickCancel').addEventListener('click', stopPicking);
+        drawHome();
+
+        // ============================================================
+        // 📏 DISTÀNCIA FINS A CASA (el rei reparteix casa per casa)
+        // ============================================================
+        const fmtMins = d => { const m = Math.max(1, Math.round((d - Date.now()) / 60000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`; };
+
+        function updateKingProgress(kingId) {
+            const king = kingsState[kingId], route = routeOf(kingId), last = king.trailPoints[king.trailPoints.length - 1];
+            king.toHome = null;
+            let ahead = null;
+            if (home && route && last) {
+                if (!route.hp) route.hp = projectOnRoute(route, home.lat, home.lng);
+                const hp = route.hp, pr = projectOnRoute(route, last.lat, last.lng);
+                if (hp.off > 250) king.toHome = { status: 'far' };
+                else if (pr.off >= 80) king.toHome = { status: 'offroute' };
+                else {
+                    const delta = hp.along - pr.along;
+                    if (delta < -30) king.toHome = { status: 'passed' };
+                    else {
+                        const dist = Math.max(0, delta) + hp.off, speed = serviceSpeed(king);
+                        if (dist < 30) king.toHome = { status: 'arrived', dist };
+                        else {
+                            king.toHome = { status: 'coming', dist, speed, eta: speed > 0.15 ? new Date(Date.now() + dist / speed * 1000) : null };
+                            ahead = [pr.point, ...route.coords.slice(pr.i + 1, hp.i + 1), hp.point];
+                        }
+                    }
+                }
+            }
+            // Tram fins a casa: només per al rei que segueixes
+            if (ahead && kingId === favorite) {
+                if (!king.aheadLine) king.aheadLine = L.polyline(ahead, { color: king.color, weight: 5, opacity: 0.9, dashArray: '2, 9', lineCap: 'round' }).addTo(king.layerGroup);
+                else king.aheadLine.setLatLngs(ahead);
+            } else if (king.aheadLine) king.aheadLine.setLatLngs([]);
+            renderKing(kingId);
+        }
+
+        // Text principal segons l'estat: [frase gran, detall]
+        function homeMessage(king) {
+            const t = king.toHome;
+            if (!king.lastTs) return ['Esperant senyal…', ''];
+            if (!home) return ['Marca on vius', 'Així sabràs quan arriba a casa teva'];
+            if (!t) return ['—', ''];
+            switch (t.status) {
+                case 'arrived': return ['Ja és a casa teva', ''];
+                case 'passed': return ['Ja ha passat per casa teva', ''];
+                case 'far': return ['No passa per casa teva', 'La seva ruta queda lluny'];
+                case 'offroute': return ['Fora de la ruta prevista', ''];
+                default: return [`A ${fmtDist(t.dist)} de casa teva`, t.eta ? `arriba en ~${fmtMins(t.eta)} · ${fmtClock(t.eta)}` : 'ara està aturat'];
+            }
+        }
+
+        // ============================================================
+        // 🧭 DOCK + MODAL
+        // ============================================================
+        const dock = document.getElementById('dock');
+        const sheet = document.getElementById('sheet');
+        const sheetBody = document.getElementById('sheetBody');
+        let openKingId = null;
+        let sheetMode = null; // 'king' | 'home'
+
+        function cardHTML(kingId) {
+            const king = kingsState[kingId];
+            const stale = !king.lastTs || Date.now() - king.lastTs > 4 * 60 * 1000;
+            const [main, detail] = homeMessage(king);
+            return `<button class="track-card${stale ? ' is-stale' : ''}" style="--c:${king.color}" data-king="${kingId}" role="listitem">
+                <span class="track-card__name"><span>${kingId === favorite ? `<svg class="track-card__fav" viewBox="0 0 24 24" fill="currentColor" aria-label="Seguint"><path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.7 7.3L12 17.8 5.7 21.5l1.7-7.3L2 9.5l7.1-.6z"/></svg>` : ''}${king.name}</span><span class="track-card__age">${king.lastTs ? fmtAge(king.lastTs) : ''}</span></span>
+                <span class="track-card__street">${king.lastTs ? king.currentStreet : '—'}</span>
+                <span class="track-card__main">${main}${detail ? `<br><small>${detail}</small>` : ''}</span>
+            </button>`;
+        }
+
+        function renderDock() {
+            const ids = favorite ? [favorite] : Object.keys(kingsState);
+            dock.classList.toggle('dock--single', !!favorite);
+            dock.innerHTML = ids.map(cardHTML).join('');
+        }
+
+        function kingSheetHTML(kingId) {
+            const king = kingsState[kingId], t = king.toHome;
+            const where = king.lastTs ? king.currentStreet : 'Encara sense senyal';
+            const [main, detail] = homeMessage(king);
+            const isFav = kingId === favorite;
+            return `<div class="sheet__head" style="--c:${king.color}">
+                    <span class="sheet__swatch"></span><h2 id="sheetTitle">${king.name}</h2>
+                    <button class="sheet__close" data-close aria-label="Tancar">&times;</button>
+                </div>
+                <div>
+                    <div class="sheet__where">${where}</div>
+                    ${king.prevStreet ? `<div class="sheet__from">Ve de: ${king.prevStreet}</div>` : ''}
+                </div>
+                <div>
+                    <div class="sheet__big">${main}</div>
+                    ${detail ? `<div class="sheet__note">${detail}</div>` : ''}
+                </div>
+                <dl class="facts">
+                    <div><dt>Fins a casa teva</dt><dd>${t && t.dist != null ? fmtDist(t.dist) : '—'}</dd></div>
+                    <div><dt>Arribada estimada</dt><dd>${t && t.eta ? '~' + fmtClock(t.eta) : '—'}</dd></div>
+                    <div><dt>Últim senyal</dt><dd>${king.lastTs ? fmtAge(king.lastTs) : '—'}</dd></div>
+                </dl>
+                ${home ? '' : '<button class="sheet__alt" data-home-pick>Marcar casa meva</button>'}
+                <button class="sheet__go" data-fav="${kingId}">${isFav ? 'Deixar de seguir' : 'Seguir aquest rei'}</button>
+                <button class="sheet__alt" data-go="${kingId}">Veure al mapa</button>`;
+        }
+
+        function homeSheetHTML() {
+            return `<div class="sheet__head">
+                    <span class="sheet__swatch" style="--c:var(--gold)"></span><h2 id="sheetTitle">Casa teva</h2>
+                    <button class="sheet__close" data-close aria-label="Tancar">&times;</button>
+                </div>
+                <p class="sheet__note">${home ? 'Calculem quan falta perquè el rei arribi a aquest punt. Pots canviar-lo quan vulguis.' : 'Marca on vius i t\'avisem de quant falta perquè arribi el rei a casa teva. Es desa només al teu dispositiu.'}</p>
+                <p class="sheet__note" id="geoMsg" role="status"></p>
+                <button class="sheet__go" data-home-pick>Triar al mapa</button>
+                <button class="sheet__alt" data-home-geo>Fer servir la meva ubicació</button>
+                ${home ? '<button class="sheet__alt" data-home-clear>Treure casa</button>' : ''}`;
+        }
+
+        function renderKing() {
+            renderDock();
+            if (sheet.open && sheetMode === 'king' && openKingId) sheetBody.innerHTML = kingSheetHTML(openKingId);
+        }
+
+        function openSheet(kingId) {
+            if (picking) return;
+            openKingId = kingId; sheetMode = 'king';
+            track('open', { k: kingId });
+            sheetBody.innerHTML = kingSheetHTML(kingId);
+            if (!sheet.open) sheet.showModal();
+        }
+
+        function openHomeSheet() {
+            openKingId = null; sheetMode = 'home';
+            sheetBody.innerHTML = homeSheetHTML();
+            if (!sheet.open) sheet.showModal();
+        }
+
+        function focusKing(kingId) {
+            const king = kingsState[kingId];
+            if (king.marker) map.flyTo(king.marker.getLatLng(), Math.max(map.getZoom(), 17), { duration: 0.8 });
+        }
+
+        dock.addEventListener('click', e => {
+            const b = e.target.closest('[data-king]');
+            if (!b) return;
+            focusKing(b.dataset.king);
+            openSheet(b.dataset.king);
+        });
+        homeFab.addEventListener('click', openHomeSheet);
+        sheet.addEventListener('click', e => {
+            if (e.target === sheet || e.target.closest('[data-close]')) return sheet.close();
+            const go = e.target.closest('[data-go]');
+            if (go) { sheet.close(); return focusKing(go.dataset.go); }
+            const fav = e.target.closest('[data-fav]');
+            if (fav) { setFavorite(favorite === fav.dataset.fav ? null : fav.dataset.fav); return; }
+            if (e.target.closest('[data-home-pick]')) { sheet.close(); return startPicking(); }
+            if (e.target.closest('[data-home-clear]')) { clearHome(); return sheet.close(); }
+            if (e.target.closest('[data-home-geo]')) {
+                const msg = document.getElementById('geoMsg');
+                if (!navigator.geolocation) { msg.textContent = 'Aquest dispositiu no permet obtenir la ubicació. Tria-la al mapa.'; return; }
+                msg.textContent = 'Obtenint la teva ubicació…';
+                navigator.geolocation.getCurrentPosition(
+                    pos => { setHome(L.latLng(pos.coords.latitude, pos.coords.longitude)); map.panTo([pos.coords.latitude, pos.coords.longitude]); sheet.close(); },
+                    () => { msg.textContent = 'No hem pogut obtenir la ubicació. Tria-la al mapa.'; },
+                    { enableHighAccuracy: true, timeout: 10000 });
+            }
+        });
+        sheet.addEventListener('close', () => { openKingId = null; sheetMode = null; });
+        setInterval(renderKing, 1000);
+        renderDock();
+
+        // ============================================================
+        // 🎬 SIMULACIÓ (?sim=1): reis recorrent la seva ruta, sense dades reals
+        // ============================================================
+        async function startSimulation() {
+            await Promise.all(ROUTES.map(r => r.ready));
+            const runs = ROUTES.filter(r => r.tracker && r.coords).map((r, i) => ({
+                kingId: r.tracker, route: r, along: r.length * (0.12 + i * 0.17) % r.length, speed: 7 + i * 1.5,
+            }));
+            const TICK = 1500;
+            const push = (run, ts, final) => {
+                const [lat, lng] = pointAt(run.route, run.along);
+                addTrailPoint(run.kingId, lat, lng, ts);
+                if (final) updateMarker(run.kingId, lat, lng, ts);
+            };
+            // Historial previ: d'on ve
+            runs.forEach(run => {
+                const start = run.along;
+                for (let n = 24; n > 0; n--) {
+                    run.along = Math.max(0, start - n * run.speed * TICK / 1000);
+                    push(run, Date.now() - n * TICK, false);
+                }
+                run.along = start;
+                push(run, Date.now(), true);
+            });
+            const b = L.latLngBounds(runs.flatMap(r => r.route.coords));
+            map.fitBounds(b, { padding: [30, 30] });
+            // A la demo posem una casa d'exemple a prop de la ruta de Gaspar perquè es vegi el compte enrere
+            if (!home) {
+                const gr = runs.find(r => r.kingId === 'Gaspar') || runs[0];
+                const [hl, hg] = pointAt(gr.route, gr.route.length * 0.8);
+                setHome(L.latLng(hl + 0.00008, hg), false);
+            }
+            setStatus('connected', Date.now());
+            loadingOverlay.classList.add('hidden');
+            setInterval(() => {
+                runs.forEach(run => {
+                    run.along += run.speed * TICK / 1000;
+                    if (run.along >= run.route.length) { run.along = run.route.length; }
+                    push(run, Date.now(), true);
+                    if (run.along >= run.route.length && !run.restart) {
+                        run.restart = setTimeout(() => { run.along = 0; run.restart = null; kingsState[run.kingId].trailPoints.length = 0; }, 8000);
+                    }
+                });
+                setStatus('connected', Date.now());
+            }, TICK);
+        }
+
+        // ============================================================
+        // 📊 ANALÍTIQUES (pròpies, anònimes) + CONSENTIMENT DE COOKIES
+        // ============================================================
+        // Sense consentiment: es compten visites de forma anònima (id aleatori només en memòria).
+        // Amb consentiment: a més es desa la cookie ro_vid per comptar visitants únics.
+        const getCookie = n => (document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')) || [])[1];
+        const setCookie = (n, v, days) => {
+            document.cookie = `${n}=${v}; max-age=${days * 86400}; path=/; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;
+        };
+        const randHex = bytes => Array.from(crypto.getRandomValues(new Uint8Array(bytes)), b => b.toString(16).padStart(2, '0')).join('');
+
+        const consentEl = document.getElementById('consent');
+        const sessionId = randHex(8);
+
+        function consentState() { const c = getCookie('ro_consent'); return c === '1' ? 1 : c === '0' ? 0 : null; }
+        function visitorId() {
+            if (consentState() !== 1) return undefined;
+            let v = getCookie('ro_vid');
+            if (!v) { v = randHex(12); setCookie('ro_vid', v, 395); }
+            return v;
+        }
+
+        function track(type, extra) {
+            if (SIM) return;
+            try {
+                const body = JSON.stringify({ t: type, s: sessionId, v: visitorId(), c: consentState(), ...extra });
+                if (!(navigator.sendBeacon && navigator.sendBeacon('api/hit', new Blob([body], { type: 'application/json' })))) {
+                    fetch('api/hit', { method: 'POST', body, keepalive: true }).catch(() => {});
+                }
+            } catch (e) { /* les analítiques mai han de trencar l'app */ }
+        }
+
+        function setConsent(value) {
+            setCookie('ro_consent', value, 395);
+            if (value === '1') visitorId();
+            else setCookie('ro_vid', '', 0);
+            consentEl.classList.remove('is-open');
+        }
+        consentEl.addEventListener('click', e => {
+            const b = e.target.closest('[data-consent]');
+            if (b) setConsent(b.dataset.consent);
+        });
+        document.getElementById('privacyBtn').addEventListener('click', () => consentEl.classList.add('is-open'));
+        if (consentState() === null && !SIM) consentEl.classList.add('is-open');
+
+        track('view');
+        setInterval(() => { if (document.visibilityState === 'visible') track('beat'); }, 30000);
+
         // ============================================================
         // 🔌 ESTADO DE CONEXIÓN
         // ============================================================
@@ -705,69 +1260,63 @@
         // 🔥 POLLING — Conexión a Caché Local Estática (Server-Side)
         // ============================================================
 
-        const CACHE_URL = `data.json`;
+        // Càrrega inicial: historial compacte (api/state). Després: només l'última posició (api/latest, uns pocs bytes).
+        // Sense "?t=": el servidor/CDN ja en controla la caducitat (4-10 s) i així molts usuaris comparteixen resposta.
         let initialLoadDone = false;
+        let inFlight = false;
+        let failures = 0;
+
+        function applyKingPoints(kingId, entries) {
+            const king = kingsState[kingId];
+            const last = entries[entries.length - 1];
+            if (!initialLoadDone) {
+                entries.forEach(p => king.trailPoints.push(p));
+                drawTrail(kingId);
+                updateMarker(kingId, last.lat, last.lng, last.timestamp);
+            } else {
+                const lastKnown = king.trailPoints.length ? king.trailPoints[king.trailPoints.length - 1] : null;
+                if (!lastKnown || last.timestamp > lastKnown.timestamp) {
+                    addTrailPoint(kingId, last.lat, last.lng, last.timestamp);
+                    updateMarker(kingId, last.lat, last.lng, last.timestamp);
+                }
+            }
+        }
 
         async function fetchLatestData() {
+            if (SIM || inFlight) return;
+            inFlight = true;
             try {
                 if (!initialLoadDone) setStatus('searching');
-                const url = `${CACHE_URL}?t=${Date.now()}`;
-                const response = await fetch(url);
+                const ctrl = new AbortController();
+                const timer = setTimeout(() => ctrl.abort(), 12000);
+                const response = await fetch(initialLoadDone ? 'api/latest' : 'api/state', { signal: ctrl.signal });
+                clearTimeout(timer);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
 
-                if (!response.ok) throw new Error(`Archivo no encontrado. HTTP ${response.status}`);
-                const newData = await response.json();
-
-                if (newData) {
-                    const cutoff = Date.now() - (CONFIG.trailMaxHours * 60 * 60 * 1000);
-                    let mostRecentGlobalTimestamp = 0;
-
-                    for (const kingId in newData) {
-                        if (!kingsState[kingId]) continue;
-                        const kingData = newData[kingId];
-                        if (!kingData) continue;
-
-                        const entries = Object.values(kingData)
-                            .filter(d => d && d.location && d.location.coords && d.location.timestamp)
-                            .map(d => ({
-                                lat: parseFloat(d.location.coords[CONFIG.latField]),
-                                lng: parseFloat(d.location.coords[CONFIG.lngField]),
-                                timestamp: new Date(d.location.timestamp).getTime(),
-                            }))
-                            .filter(p => !isNaN(p.lat) && !isNaN(p.lng) && p.timestamp >= cutoff)
-                            .sort((a, b) => a.timestamp - b.timestamp);
-
-                        if (entries.length > 0) {
-                            const last = entries[entries.length - 1];
-                            if (last.timestamp > mostRecentGlobalTimestamp) {
-                                mostRecentGlobalTimestamp = last.timestamp;
-                            }
-
-                            if (!initialLoadDone) {
-                                entries.forEach(p => kingsState[kingId].trailPoints.push(p));
-                                drawTrail(kingId);
-                                updateMarker(kingId, last.lat, last.lng, last.timestamp);
-                            } else {
-                                const king = kingsState[kingId];
-                                const lastKnown = king.trailPoints.length > 0 ? king.trailPoints[king.trailPoints.length - 1] : null;
-                                if (!lastKnown || last.timestamp > lastKnown.timestamp) {
-                                    addTrailPoint(kingId, last.lat, last.lng, last.timestamp);
-                                    updateMarker(kingId, last.lat, last.lng, last.timestamp);
-                                }
-                            }
-                        }
-                    }
-
-                    if (mostRecentGlobalTimestamp > 0) {
-                        setStatus('connected', mostRecentGlobalTimestamp);
-                    }
-
-                    if (!initialLoadDone) {
-                        console.log(`🛤️ Histórico Caché Local múltiple cargado.`);
-                        initialLoadDone = true;
-                    }
+                const cutoff = Date.now() - (CONFIG.trailMaxHours * 60 * 60 * 1000);
+                let mostRecent = 0;
+                for (const kingId in (data.kings || {})) {
+                    if (!kingsState[kingId]) continue;
+                    const raw = data.kings[kingId];
+                    const list = initialLoadDone ? [raw] : raw; // latest: un sol punt [ts,lat,lng]
+                    const entries = list
+                        .map(a => ({ timestamp: a[0], lat: a[1], lng: a[2] }))
+                        .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng) && p.timestamp >= cutoff);
+                    if (!entries.length) continue;
+                    mostRecent = Math.max(mostRecent, entries[entries.length - 1].timestamp);
+                    applyKingPoints(kingId, entries);
                 }
+                if (mostRecent > 0) setStatus('connected', mostRecent);
+                initialLoadDone = true;
+                failures = 0;
             } catch (err) {
-                console.warn("Retraso sincronizando caché estático:", err.message);
+                failures++;
+                console.warn('Error sincronitzant:', err.message);
+                if (initialLoadDone) setStatus('searching');
+                else setStatus('offline');
+            } finally {
+                inFlight = false;
             }
             loadingOverlay.classList.add('hidden');
         }
@@ -777,9 +1326,18 @@
         // ============================================================
         // Consultar el caché estático del servidor en segundo plano
         // (Al ser un fichero estático, no consume apenas recursos del servidor)
-        setInterval(() => {
-            fetchLatestData();
-        }, (CONFIG.refreshIntervalSecs || 20) * 1000);
+        // Cada client fa polling amb un petit jitter aleatori (evita pics simultanis) i,
+        // si el servidor falla, espaça els reintents (fins a 2 min) en lloc de bombardejar-lo.
+        function schedulePoll() {
+            const base = (CONFIG.refreshIntervalSecs || 20) * 1000;
+            const backoff = Math.min(Math.pow(2, failures), 8);
+            const delay = base * (failures ? backoff : 1) * (0.85 + Math.random() * 0.3);
+            setTimeout(async () => {
+                if (document.visibilityState === 'visible') await fetchLatestData();
+                schedulePoll();
+            }, delay);
+        }
+        schedulePoll();
 
         // MEJORA MÓVIL 1: Refrescar al volver a la pestaña (cuando se despierta el móvil)
         document.addEventListener('visibilitychange', () => {
@@ -819,7 +1377,7 @@
         });
 
         // Arrancamos la primera petición
-        fetchLatestData();
+        if (SIM) startSimulation(); else fetchLatestData();
 
         // Si tarda mucho, quitar loading igualmente por si falla la primera petición
         setTimeout(() => {
