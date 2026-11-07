@@ -3,24 +3,28 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Seguiment en Directe — Cavalcada de Reis</title>
     <meta name="description"
         content="Segueix en directe la ubicació dels Reis Mags durant la Cavalcada. Mapa en temps real.">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👑</text></svg>">
 
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
-    <!-- FontAwesome para el icono de refresco -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+    <link rel="preload" href="vendor/fonts/outfit-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 
     <style>
+        /* ===== Tipografia pròpia (sense Google Fonts) ===== */
+        @font-face {
+            font-family: 'Outfit'; font-style: normal; font-weight: 100 900; font-display: swap;
+            src: url(vendor/fonts/outfit-latin-ext-wght-normal.woff2) format('woff2');
+            unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+        }
+        @font-face {
+            font-family: 'Outfit'; font-style: normal; font-weight: 100 900; font-display: swap;
+            src: url(vendor/fonts/outfit-latin-wght-normal.woff2) format('woff2');
+            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+        }
+
         /* ===== Reset & Base ===== */
         *,
         *::before,
@@ -473,7 +477,7 @@
             <div class="header__title">
                 <span class="header__icon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 18.5h18l1-11-5.2 4.3L12 4.5 7.2 11.8 2 7.5z"/><rect x="3" y="19.5" width="18" height="2" rx="1"/></svg></span>
                 <div>
-                    <h1>Cavalcada de Reis — En Directe</h1>
+                    <h1>Cavalcada de Reis</h1>
                     <div class="header__subtitle">Seguiment en temps real</div>
                 </div>
             </div>
@@ -484,7 +488,7 @@
                     <span id="statusText">Connectant…</span>
                 </div>
                 <button id="refreshBtn" class="refresh-btn" title="Recarregar ara">
-                    <i class="fas fa-sync-alt" id="refreshIcon"></i>
+                    <svg id="refreshIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.5-4.5L3 9"/><path d="M3 4v5h5"/><path d="M4 13a8 8 0 0 0 14.5 4.5L21 15"/><path d="M21 20v-5h-5"/></svg>
                 </button>
             </div>
         </header>
@@ -522,8 +526,7 @@
     </div>
 
     <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="vendor/leaflet/leaflet.js"></script>
 
     <!-- Firebase SDK eliminado (reemplazado por REST Polling) -->
 
@@ -542,11 +545,12 @@
             lngField: "longitude",
 
             // 🛤️ Rastre / Trail
-            trailMaxHours: 12,          // Mostrar només les últimes 12 hores (ajust per a producció)
+            paradeSpeedMps: 0.6,        // Ritme habitual de la cavalcada (m/s) si encara no hi ha prou dades
+            trailMaxHours: 24,          // El rastre es conserva sencer tot el dia (inici inclòs)
             trailColor: '#f5d060',      // Color daurat (base)
             trailWeight: 4,             // Gruix de la línia
             trailOpacityMax: 0.9,       // Opacitat del tram més recent
-            trailOpacityMin: 0.15,      // Opacitat del tram més antic
+            trailOpacityMin: 0.4,       // El tram més antic es manté visible, només amb menys color
             trailSegments: 8,           // Nombre de segments del degradat
 
             // 🔄 Taxa de refresc (Polling)
@@ -692,34 +696,24 @@
 
         let firstUpdate = true;
 
+        // El nom del carrer el resol el servidor (amb memòria cau i límit de ritme cap a OpenStreetMap):
+        // així milers de visitants no saturen Nominatim i totes les peticions compartides són idèntiques.
         async function fetchStreetName(lat, lng, kingId) {
-            const now = Date.now();
             const king = kingsState[kingId];
-            if (now - king.lastAddressFetch < 12000) return king.currentStreet;
-            king.lastAddressFetch = now;
-
+            if (typeof isKingShown === 'function' && !isKingShown(kingId)) return king.currentStreet;
+            const t = Date.now();
+            if (t - king.lastAddressFetch < 12000) return king.currentStreet;
+            king.lastAddressFetch = t;
             try {
-                const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
-                const response = await fetch(url);
-                const data = await response.json();
-
-                if (data && data.address) {
-                    const road = data.address.road || data.address.pedestrian || "";
-                    const suburb = data.address.suburb || data.address.village || data.address.town || data.address.city || "";
-                    let next = king.currentStreet;
-                    if (road) {
-                        next = road + (suburb ? `, ${suburb}` : '');
-                    } else if (data.display_name) {
-                        next = data.display_name.split(',')[0];
-                    }
-                    if (next !== king.currentStreet) {
+                const r = await fetch(`api/geocode?lat=${lat.toFixed(4)}&lon=${lng.toFixed(4)}`);
+                if (r.ok) {
+                    const { street } = await r.json();
+                    if (street && street !== king.currentStreet) {
                         if (king.currentStreet !== "Ubicació desconeguda") king.prevStreet = king.currentStreet;
-                        king.currentStreet = next;
+                        king.currentStreet = street;
                     }
                 }
-            } catch (error) {
-                console.error(`Error buscando calle para ${kingId}: `, error);
-            }
+            } catch (error) { /* es reintenta al proper ping */ }
             return king.currentStreet;
         }
 
@@ -879,12 +873,16 @@
         }
 
         const fmtDist = m => m >= 1000 ? (m / 1000).toFixed(1).replace('.', ',') + ' km' : (Math.round(m / 10) * 10) + ' m';
-        const fmtAge = ts => { const s = Math.max(0, Math.round((Date.now() - ts) / 1000)); return s < 60 ? `fa ${s} s` : `fa ${Math.round(s / 60)} min`; };
+        const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        // Molts mòbils tenen l'hora mal posada: s'usa l'hora del servidor (capçalera Date) per a edats i estimacions
+        let clockOffset = 0;
+        const now = () => Date.now() + clockOffset;
+        const fmtAge = ts => { const s = Math.max(0, Math.round((now() - ts) / 1000)); return s < 60 ? `fa ${s} s` : `fa ${Math.round(s / 60)} min`; };
         const fmtClock = d => d.toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit' });
         const routeOf = kingId => ROUTES.find(r => r.tracker === kingId && r.coords);
 
         // ============================================================
-        // 🏠 CASA I REI FAVORIT (es desen només al dispositiu)
+        // 🏠 CASA, RUTA I REI QUE SEGUEIXES (es desa només al dispositiu)
         // ============================================================
         const HOUSE_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3 2 12h3v8h5v-5h4v5h5v-8h3z"/></svg>';
         const memStore = {};
@@ -898,11 +896,50 @@
         try { const h = JSON.parse(store.get('ro_home')); if (h && Number.isFinite(h.lat) && Number.isFinite(h.lng)) home = h; } catch (e) { /* res */ }
         let favorite = store.get('ro_fav');
         if (!kingsState[favorite]) favorite = null;
+        let showAll = store.get('ro_all') === '1';
+        let homeKing = null;   // el rei la ruta del qual passa per casa teva
         let homeMarker = null;
+        let routesLoaded = false;
+
+        // Un cop hi ha casa, només importa la ruta (i el rei) que hi passa
+        const followed = () => (home && homeKing) ? homeKing : favorite;
+        const onlyMine = () => !!(home && homeKing && !showAll);
+        const isKingShown = id => !onlyMine() || id === homeKing;
 
         const homeFab = document.getElementById('homeFab');
         const pickbar = document.getElementById('pickbar');
         let picking = false;
+
+        function computeHomeKing() {
+            homeKing = null;
+            if (!home) return;
+            let best = null;
+            for (const r of ROUTES) {
+                if (!r.tracker || !r.coords) continue;
+                const off = projectOnRoute(r, home.lat, home.lng).off;
+                if (!best || off < best.off) best = { id: r.tracker, off };
+            }
+            if (best && best.off < 250) homeKing = best.id;
+        }
+
+        // Amaga les altres rutes i reis quan se'n segueix una (sense tocar el control de capes manual)
+        function applyVisibility() {
+            const mine = onlyMine();
+            for (const id in kingsState) {
+                const k = kingsState[id], vis = !mine || id === homeKing;
+                [k.layerGroup, k.trailGroup].forEach(l => { if (vis) map.addLayer(l); else map.removeLayer(l); });
+            }
+            ROUTES.forEach(r => {
+                const l = routeLayers[r.name], vis = !mine || r.tracker === homeKing;
+                if (vis) map.addLayer(l); else map.removeLayer(l);
+            });
+        }
+
+        function refreshAll() {
+            computeHomeKing();
+            applyVisibility();
+            Object.keys(kingsState).forEach(updateKingProgress);
+        }
 
         function drawHome() {
             if (homeMarker) { homeMarker.remove(); homeMarker = null; }
@@ -915,35 +952,38 @@
             }
         }
 
+        function fitHomeAndKing() {
+            const k = homeKing && kingsState[homeKing];
+            if (home && k && k.marker) map.fitBounds(L.latLngBounds([[home.lat, home.lng], k.marker.getLatLng()]), { padding: [60, 60], maxZoom: 18 });
+            else if (home) map.panTo([home.lat, home.lng]);
+        }
+
         function setHome(latlng, persist = true) {
             home = { lat: latlng.lat, lng: latlng.lng };
             if (persist) store.set('ro_home', JSON.stringify(home));
             ROUTES.forEach(r => { r.hp = null; });
-            // Si encara no segueixes cap rei, proposem el que té la ruta més a prop de casa
-            if (!favorite) {
-                let best = null;
-                for (const r of ROUTES) {
-                    if (!r.tracker || !r.coords) continue;
-                    const off = projectOnRoute(r, home.lat, home.lng).off;
-                    if (!best || off < best.off) best = { id: r.tracker, off };
-                }
-                if (best && best.off < 250) { favorite = best.id; store.set('ro_fav', favorite); }
-            }
             drawHome();
-            Object.keys(kingsState).forEach(updateKingProgress);
+            refreshAll();
         }
 
         function clearHome() {
-            home = null;
+            home = null; homeKing = null;
             store.del('ro_home');
             drawHome();
-            Object.keys(kingsState).forEach(updateKingProgress);
+            refreshAll();
         }
 
         function setFavorite(id) {
             favorite = id;
             if (id) store.set('ro_fav', id); else store.del('ro_fav');
             Object.keys(kingsState).forEach(updateKingProgress);
+        }
+
+        function setShowAll(v) {
+            showAll = v;
+            store.set('ro_all', v ? '1' : '0');
+            applyVisibility();
+            renderKing();
         }
 
         function startPicking() {
@@ -956,14 +996,30 @@
             document.body.classList.remove('is-picking');
             pickbar.classList.remove('is-open');
         }
-        map.on('click', e => { if (picking) { setHome(e.latlng); stopPicking(); map.panTo(e.latlng); } });
+        map.on('click', e => { if (picking) { setHome(e.latlng); stopPicking(); fitHomeAndKing(); } });
         document.getElementById('pickCancel').addEventListener('click', stopPicking);
         drawHome();
+        // Les rutes es carreguen de forma asíncrona: quan hi són, es calcula quina és la de casa teva
+        Promise.all(ROUTES.map(r => r.ready)).then(() => { routesLoaded = true; refreshAll(); if (!SIM && home) fitHomeAndKing(); });
 
         // ============================================================
-        // 📏 DISTÀNCIA FINS A CASA (el rei reparteix casa per casa)
+        // 📏 DISTÀNCIA FINS A CASA (el rei reparteix casa per casa, a pas lent)
         // ============================================================
-        const fmtMins = d => { const m = Math.max(1, Math.round((d - Date.now()) / 60000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`; };
+        const fmtMins = d => { const m = Math.max(1, Math.round((d - now()) / 60000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`; };
+
+        // Velocitat real sobre la ruta (m/s) en els últims 10 min, incloent-hi les aturades de repartiment.
+        // Es mesura sobre la ruta (no sobre el soroll del GPS). Retorna null si encara no hi ha prou dades.
+        function routeSpeed(king, route) {
+            const pts = king.trailPoints;
+            if (pts.length < 2) return null;
+            const last = pts[pts.length - 1];
+            let first = last;
+            for (let i = pts.length - 2; i >= 0 && last.timestamp - pts[i].timestamp <= 600000; i--) first = pts[i];
+            const dt = (last.timestamp - first.timestamp) / 1000;
+            if (dt < 90) return null;
+            const a = projectOnRoute(route, first.lat, first.lng), b = projectOnRoute(route, last.lat, last.lng);
+            return (b.along - a.along) / dt;
+        }
 
         function updateKingProgress(kingId) {
             const king = kingsState[kingId], route = routeOf(kingId), last = king.trailPoints[king.trailPoints.length - 1];
@@ -978,17 +1034,20 @@
                     const delta = hp.along - pr.along;
                     if (delta < -30) king.toHome = { status: 'passed' };
                     else {
-                        const dist = Math.max(0, delta) + hp.off, speed = serviceSpeed(king);
+                        const dist = Math.max(0, delta) + hp.off;
                         if (dist < 30) king.toHome = { status: 'arrived', dist };
                         else {
-                            king.toHome = { status: 'coming', dist, speed, eta: speed > 0.15 ? new Date(Date.now() + dist / speed * 1000) : null };
+                            const measured = routeSpeed(king, route);
+                            const estimated = measured == null || measured < 0.1;
+                            const speed = Math.max(0.15, Math.min(SIM ? Infinity : 2, estimated ? CONFIG.paradeSpeedMps : measured));
+                            king.toHome = { status: 'coming', dist, speed, estimated, eta: new Date(now() + dist / speed * 1000) };
                             ahead = [pr.point, ...route.coords.slice(pr.i + 1, hp.i + 1), hp.point];
                         }
                     }
                 }
             }
             // Tram fins a casa: només per al rei que segueixes
-            if (ahead && kingId === favorite) {
+            if (ahead && kingId === followed()) {
                 if (!king.aheadLine) king.aheadLine = L.polyline(ahead, { color: king.color, weight: 5, opacity: 0.9, dashArray: '2, 9', lineCap: 'round' }).addTo(king.layerGroup);
                 else king.aheadLine.setLatLngs(ahead);
             } else if (king.aheadLine) king.aheadLine.setLatLngs([]);
@@ -1000,13 +1059,22 @@
             const t = king.toHome;
             if (!king.lastTs) return ['Esperant senyal…', ''];
             if (!home) return ['Marca on vius', 'Així sabràs quan arriba a casa teva'];
+            if (!homeKing) return routesLoaded ? ['Cap ruta passa per casa teva', 'Revisa el punt que has marcat'] : ['Carregant rutes…', ''];
             if (!t) return ['—', ''];
+            const old = now() - king.lastTs > 4 * 60 * 1000 ? 'Sense senyal recent · ' : '';
             switch (t.status) {
                 case 'arrived': return ['Ja és a casa teva', ''];
                 case 'passed': return ['Ja ha passat per casa teva', ''];
                 case 'far': return ['No passa per casa teva', 'La seva ruta queda lluny'];
                 case 'offroute': return ['Fora de la ruta prevista', ''];
-                default: return [`A ${fmtDist(t.dist)} de casa teva`, t.eta ? `arriba en ~${fmtMins(t.eta)} · ${fmtClock(t.eta)}` : 'ara està aturat'];
+                default: {
+                    const mins = Math.max(1, Math.round((t.eta - now()) / 60000));
+                    // Amb marge gran no té sentit el minut exacte: s'arrodoneix a 5 min
+                    const eta = mins >= 10 ? new Date(Math.round(t.eta.getTime() / 300000) * 300000) : t.eta;
+                    let detail = t.dist < 150 ? 'Està a prop!' : `cap a les ${fmtClock(eta)} · uns ${fmtMins(t.eta)}`;
+                    if (t.estimated && t.dist >= 150) detail += ' (estimació)';
+                    return [`A ${fmtDist(t.dist)} de casa teva`, old + detail];
+                }
             }
         }
 
@@ -1019,78 +1087,104 @@
         let openKingId = null;
         let sheetMode = null; // 'king' | 'home'
 
+        // Substitueix l'HTML només si ha canviat i conserva el focus (teclat / lectors de pantalla)
+        function setHTMLKeepFocus(el, html) {
+            if (el._html === html) return;
+            el._html = html;
+            const a = document.activeElement;
+            let sel = null;
+            if (a && el.contains(a)) {
+                const k = Object.keys(a.dataset)[0];
+                if (k) sel = '[data-' + k.replace(/[A-Z]/g, m => '-' + m.toLowerCase()) + (a.dataset[k] ? `="${CSS.escape(a.dataset[k])}"` : '') + ']';
+            }
+            el.innerHTML = html;
+            if (sel) { const n = el.querySelector(sel); if (n) n.focus(); }
+        }
+
         function cardHTML(kingId) {
             const king = kingsState[kingId];
-            const stale = !king.lastTs || Date.now() - king.lastTs > 4 * 60 * 1000;
+            const stale = !king.lastTs || now() - king.lastTs > 4 * 60 * 1000;
             const [main, detail] = homeMessage(king);
+            const star = kingId === followed() ? `<svg class="track-card__fav" viewBox="0 0 24 24" fill="currentColor" aria-label="Seguint"><path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.7 7.3L12 17.8 5.7 21.5l1.7-7.3L2 9.5l7.1-.6z"/></svg>` : '';
             return `<button class="track-card${stale ? ' is-stale' : ''}" style="--c:${king.color}" data-king="${kingId}" role="listitem">
-                <span class="track-card__name"><span>${kingId === favorite ? `<svg class="track-card__fav" viewBox="0 0 24 24" fill="currentColor" aria-label="Seguint"><path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.7 7.3L12 17.8 5.7 21.5l1.7-7.3L2 9.5l7.1-.6z"/></svg>` : ''}${king.name}</span><span class="track-card__age">${king.lastTs ? fmtAge(king.lastTs) : ''}</span></span>
-                <span class="track-card__street">${king.lastTs ? king.currentStreet : '—'}</span>
-                <span class="track-card__main">${main}${detail ? `<br><small>${detail}</small>` : ''}</span>
+                <span class="track-card__name"><span>${star}${esc(king.name)}</span><span class="track-card__age" data-age="${king.lastTs || ''}">${king.lastTs ? fmtAge(king.lastTs) : ''}</span></span>
+                <span class="track-card__street">${king.lastTs ? esc(king.currentStreet) : '—'}</span>
+                <span class="track-card__main">${esc(main)}${detail ? `<br><small>${esc(detail)}</small>` : ''}</span>
             </button>`;
         }
 
         function renderDock() {
-            const ids = favorite ? [favorite] : Object.keys(kingsState);
-            dock.classList.toggle('dock--single', !!favorite);
-            dock.innerHTML = ids.map(cardHTML).join('');
+            const f = followed();
+            const ids = f ? [f] : Object.keys(kingsState);
+            dock.classList.toggle('dock--single', !!f);
+            setHTMLKeepFocus(dock, ids.map(cardHTML).join(''));
         }
 
         function kingSheetHTML(kingId) {
             const king = kingsState[kingId], t = king.toHome;
-            const where = king.lastTs ? king.currentStreet : 'Encara sense senyal';
+            const where = king.lastTs ? esc(king.currentStreet) : 'Encara sense senyal';
             const [main, detail] = homeMessage(king);
+            const lockedByHome = !!(home && homeKing);
             const isFav = kingId === favorite;
             return `<div class="sheet__head" style="--c:${king.color}">
-                    <span class="sheet__swatch"></span><h2 id="sheetTitle">${king.name}</h2>
+                    <span class="sheet__swatch"></span><h2 id="sheetTitle">${esc(king.name)}</h2>
                     <button class="sheet__close" data-close aria-label="Tancar">&times;</button>
                 </div>
                 <div>
                     <div class="sheet__where">${where}</div>
-                    ${king.prevStreet ? `<div class="sheet__from">Ve de: ${king.prevStreet}</div>` : ''}
+                    ${king.prevStreet ? `<div class="sheet__from">Ve de: ${esc(king.prevStreet)}</div>` : ''}
                 </div>
                 <div>
-                    <div class="sheet__big">${main}</div>
-                    ${detail ? `<div class="sheet__note">${detail}</div>` : ''}
+                    <div class="sheet__big">${esc(main)}</div>
+                    ${detail ? `<div class="sheet__note">${esc(detail)}</div>` : ''}
                 </div>
                 <dl class="facts">
                     <div><dt>Fins a casa teva</dt><dd>${t && t.dist != null ? fmtDist(t.dist) : '—'}</dd></div>
                     <div><dt>Arribada estimada</dt><dd>${t && t.eta ? '~' + fmtClock(t.eta) : '—'}</dd></div>
-                    <div><dt>Últim senyal</dt><dd>${king.lastTs ? fmtAge(king.lastTs) : '—'}</dd></div>
+                    <div><dt>Últim senyal</dt><dd data-age="${king.lastTs || ''}">${king.lastTs ? fmtAge(king.lastTs) : '—'}</dd></div>
                 </dl>
                 ${home ? '' : '<button class="sheet__alt" data-home-pick>Marcar casa meva</button>'}
-                <button class="sheet__go" data-fav="${kingId}">${isFav ? 'Deixar de seguir' : 'Seguir aquest rei'}</button>
-                <button class="sheet__alt" data-go="${kingId}">Veure al mapa</button>`;
+                ${lockedByHome ? (kingId === homeKing ? '' : '<p class="sheet__note">Aquest rei no fa la ruta de casa teva.</p>')
+                    : `<button class="sheet__go" data-fav="${kingId}">${isFav ? 'Deixar de seguir' : 'Seguir aquest rei'}</button>`}
+                <button class="${lockedByHome ? 'sheet__go' : 'sheet__alt'}" data-go="${kingId}">Veure al mapa</button>`;
         }
 
         function homeSheetHTML() {
+            const route = homeKing && ROUTES.find(r => r.tracker === homeKing);
+            const note = !home
+                ? 'Marca on vius i et direm quant falta perquè arribi el rei a casa teva. Es desa només al teu dispositiu.'
+                : homeKing ? `La teva ruta és la <b>${esc(route.name)}</b> (${esc(kingsState[homeKing].name)}). Només es mostra aquesta ruta.`
+                : 'Cap ruta passa a menys de 250 m de casa teva. Comprova que has triat bé el punt.';
             return `<div class="sheet__head">
                     <span class="sheet__swatch" style="--c:var(--gold)"></span><h2 id="sheetTitle">Casa teva</h2>
                     <button class="sheet__close" data-close aria-label="Tancar">&times;</button>
                 </div>
-                <p class="sheet__note">${home ? 'Calculem quan falta perquè el rei arribi a aquest punt. Pots canviar-lo quan vulguis.' : 'Marca on vius i t\'avisem de quant falta perquè arribi el rei a casa teva. Es desa només al teu dispositiu.'}</p>
+                <p class="sheet__note">${note}</p>
                 <p class="sheet__note" id="geoMsg" role="status"></p>
-                <button class="sheet__go" data-home-pick>Triar al mapa</button>
+                <button class="sheet__go" data-home-pick>${home ? 'Canviar al mapa' : 'Triar al mapa'}</button>
                 <button class="sheet__alt" data-home-geo>Fer servir la meva ubicació</button>
+                ${home && homeKing ? `<button class="sheet__alt" data-toggle-all>${showAll ? 'Amagar les altres rutes' : 'Veure també les altres rutes'}</button>` : ''}
                 ${home ? '<button class="sheet__alt" data-home-clear>Treure casa</button>' : ''}`;
         }
 
         function renderKing() {
             renderDock();
-            if (sheet.open && sheetMode === 'king' && openKingId) sheetBody.innerHTML = kingSheetHTML(openKingId);
+            if (sheet.open && sheetMode === 'king' && openKingId) setHTMLKeepFocus(sheetBody, kingSheetHTML(openKingId));
         }
 
         function openSheet(kingId) {
             if (picking) return;
             openKingId = kingId; sheetMode = 'king';
             track('open', { k: kingId });
-            sheetBody.innerHTML = kingSheetHTML(kingId);
+            sheetBody._html = null;
+            setHTMLKeepFocus(sheetBody, kingSheetHTML(kingId));
             if (!sheet.open) sheet.showModal();
         }
 
         function openHomeSheet() {
             openKingId = null; sheetMode = 'home';
-            sheetBody.innerHTML = homeSheetHTML();
+            sheetBody._html = null;
+            setHTMLKeepFocus(sheetBody, homeSheetHTML());
             if (!sheet.open) sheet.showModal();
         }
 
@@ -1112,6 +1206,7 @@
             if (go) { sheet.close(); return focusKing(go.dataset.go); }
             const fav = e.target.closest('[data-fav]');
             if (fav) { setFavorite(favorite === fav.dataset.fav ? null : fav.dataset.fav); return; }
+            if (e.target.closest('[data-toggle-all]')) { setShowAll(!showAll); sheetBody._html = null; setHTMLKeepFocus(sheetBody, homeSheetHTML()); return; }
             if (e.target.closest('[data-home-pick]')) { sheet.close(); return startPicking(); }
             if (e.target.closest('[data-home-clear]')) { clearHome(); return sheet.close(); }
             if (e.target.closest('[data-home-geo]')) {
@@ -1119,13 +1214,17 @@
                 if (!navigator.geolocation) { msg.textContent = 'Aquest dispositiu no permet obtenir la ubicació. Tria-la al mapa.'; return; }
                 msg.textContent = 'Obtenint la teva ubicació…';
                 navigator.geolocation.getCurrentPosition(
-                    pos => { setHome(L.latLng(pos.coords.latitude, pos.coords.longitude)); map.panTo([pos.coords.latitude, pos.coords.longitude]); sheet.close(); },
+                    pos => { setHome(L.latLng(pos.coords.latitude, pos.coords.longitude)); sheet.close(); fitHomeAndKing(); },
                     () => { msg.textContent = 'No hem pogut obtenir la ubicació. Tria-la al mapa.'; },
                     { enableHighAccuracy: true, timeout: 10000 });
             }
         });
         sheet.addEventListener('close', () => { openKingId = null; sheetMode = null; });
-        setInterval(renderKing, 1000);
+        // Cada segon només s'actualitzen els "fa X s"; la resta es redibuixa cada 15 s (o quan arriben dades)
+        setInterval(() => {
+            document.querySelectorAll('[data-age]').forEach(el => { if (el.dataset.age) el.textContent = fmtAge(Number(el.dataset.age)); });
+        }, 1000);
+        setInterval(renderKing, 15000);
         renderDock();
 
         // ============================================================
@@ -1235,7 +1334,7 @@
             statusDot.className = 'status-dot';
             switch (state) {
                 case 'connected':
-                    if (timestamp && (Date.now() - timestamp > 4 * 60 * 1000)) {
+                    if (timestamp && (now() - timestamp > 4 * 60 * 1000)) {
                         statusDot.classList.add('searching');
                         statusText.textContent = 'Reconnectant…';
                         statusDot.dataset.mode = 'reconnecting';
@@ -1292,9 +1391,11 @@
                 const response = await fetch(initialLoadDone ? 'api/latest' : 'api/state', { signal: ctrl.signal });
                 clearTimeout(timer);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const serverDate = Date.parse(response.headers.get('Date') || '');
+                if (!SIM && Number.isFinite(serverDate)) clockOffset = serverDate - Date.now();
                 const data = await response.json();
 
-                const cutoff = Date.now() - (CONFIG.trailMaxHours * 60 * 60 * 1000);
+                const cutoff = now() - (CONFIG.trailMaxHours * 60 * 60 * 1000);
                 let mostRecent = 0;
                 for (const kingId in (data.kings || {})) {
                     if (!kingsState[kingId]) continue;
