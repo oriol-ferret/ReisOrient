@@ -820,7 +820,7 @@
             const rows = ROUTES.map(r => {
                 const k = r.tracker && kingsState[r.tracker];
                 const dim = mine && r.tracker !== homeKing;
-                return `<label class="rt${dim ? ' is-dim' : ''}"${k ? ` title="${esc(k.name)}"` : ''}><input type="checkbox" data-route="${r.id}"${routeOn[r.id] && !dim ? ' checked' : ''}${dim ? ' disabled' : ''}>`
+                return `<label class="rt${dim ? ' is-dim' : ''}"${k ? ` title="${esc(k.name)}"` : ''}><input type="checkbox" data-route="${r.id}"${routeOn[r.id] && !dim ? ' checked' : ''}>`
                     + `<span class="rt__sw" style="--c:${r.color}"></span><span class="rt__name">${esc(r.name)}</span></label>`;
             }).join('');
             setHTMLKeepFocus(routesPanel, `<div class="rt-head"><button type="button" data-rt-all>Totes</button><button type="button" data-rt-none>Cap</button></div>`
@@ -844,6 +844,8 @@
         routesPanel.addEventListener('change', e => {
             const cb = e.target.closest('[data-route]');
             if (!cb) return;
+            // Amb «només la meva ruta» actiu, tocar una altra casella passa a mostrar-les totes (sense haver de prémer «Totes»)
+            if (onlyMine()) { ROUTES.forEach(r => { routeOn[r.id] = r.id === cb.dataset.route ? cb.checked : r.tracker === homeKing || r.id === cb.dataset.route; }); setShowAll(true); renderRoutesPanel(); return; }
             routeOn[cb.dataset.route] = cb.checked;
             applyVisibility();
         });
@@ -1484,6 +1486,9 @@
                 const [hl, hg] = pointAt(gr.route, gr.route.length * 0.8);
                 setHome(L.latLng(hl + 0.00008, hg), false);
             }
+            // A la demo es veuen totes les rutes i reis des del principi (i les caselles del llistat ja són editables)
+            ROUTES.forEach(r => { routeOn[r.id] = true; });
+            setShowAll(true);
             setStatus('connected', Date.now());
             loadingOverlay.classList.add('hidden');
             setInterval(() => {
