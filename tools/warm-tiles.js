@@ -31,16 +31,21 @@ for (const f of fs.readdirSync(ROOT).filter(n => /^ruta.*\.geojson$/.test(n))) {
     for (const ft of (g.type === 'FeatureCollection' ? g.features : [g])) walk((ft.geometry || ft).coordinates);
 }
 if (minLat > maxLat) { console.error('No s\'han trobat rutes (ruta*.geojson)'); process.exit(1); }
-// Mateix marge que el límit de panoràmica del mapa (index.html)
-const zone = [minLat - 0.012, minLon - 0.016, maxLat + 0.012, maxLon + 0.016];
+// Zooms baixos (veure tot el poble): tota l'àrea permesa. Zooms alts (carrers): només l'entorn proper de les rutes;
+// la resta d'aquests es baixa sota demanda. (MAP_PAD a index.html = 0,03 / 0,045)
+const zoneFull = [minLat - 0.03, minLon - 0.045, maxLat + 0.03, maxLon + 0.045];
+const zoneCore = [minLat - 0.012, minLon - 0.016, maxLat + 0.012, maxLon + 0.016];
+const zone = zoneFull;
+const CORE_FROM_Z = 17;
 
 const lon2x = (lon, z) => Math.floor((lon + 180) / 360 * 2 ** z);
 const lat2y = (lat, z) => { const r = lat * Math.PI / 180; return Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 2 ** z); };
 
 const list = [];
 for (let z = MIN_Z; z <= MAX_Z; z++) {
-    for (let x = lon2x(zone[1], z); x <= lon2x(zone[3], z); x++) {
-        for (let y = lat2y(zone[2], z); y <= lat2y(zone[0], z); y++) list.push([z, x, y]);
+    const zn = z >= CORE_FROM_Z ? zoneCore : zoneFull;
+    for (let x = lon2x(zn[1], z); x <= lon2x(zn[3], z); x++) {
+        for (let y = lat2y(zn[2], z); y <= lat2y(zn[0], z); y++) list.push([z, x, y]);
     }
 }
 console.log(`Zona: ${zone.map(v => v.toFixed(4)).join(', ')} — zooms ${MIN_Z}-${MAX_Z}: ${list.length} mosaics (~${(list.length * 0.4 / 60).toFixed(1)} min)`);

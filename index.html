@@ -591,6 +591,9 @@
             if (t._retries <= 3) setTimeout(() => { t.src = baseTiles.getTileUrl(e.coords) + '?r=' + t._retries; }, 700 * t._retries);
         });
 
+        // Marge (graus) al voltant de les rutes: ~3,3 km al nord/sud i ~3,4 km a l'est/oest. Prou perquè en una pantalla
+        // de mòbil o d'ordinador càpiga tot el poble al zoom mínim (el servidor accepta mosaics d'aquesta àrea, +1 mosaic).
+        const MAP_PAD = [0.03, 0.045];
         // Àrea visible permitida. El zoom mínim es calcula perquè la pantalla MAI superi aquesta àrea
         // (en una pantalla gran cal apropar-se més): així no es veu mai el fons en blanc sense mosaics.
         let areaBounds = null;
@@ -607,7 +610,7 @@
         }
         map.on('resize', fitMinZoom);
         // Àrea provisional (abans que carreguin les rutes), al voltant del centre configurat
-        setMapArea(L.latLngBounds([CONFIG.mapCenter[0] - 0.014, CONFIG.mapCenter[1] - 0.018], [CONFIG.mapCenter[0] + 0.014, CONFIG.mapCenter[1] + 0.018]));
+        setMapArea(L.latLngBounds([CONFIG.mapCenter[0] - 0.034, CONFIG.mapCenter[1] - 0.05], [CONFIG.mapCenter[0] + 0.034, CONFIG.mapCenter[1] + 0.05]));
 
         // ============================================================
         // 🗺️ TRAÇAT DE LES RUTES OFICIALS (GeoJSON)
@@ -1028,7 +1031,7 @@
         Promise.all(ROUTES.map(r => r.ready)).then(() => {
             // El mapa només cobreix l'entorn de les rutes (és el que el servidor té en cau)
             const pts = ROUTES.flatMap(r => r.coords || []);
-            if (pts.length) { const b = L.latLngBounds(pts); setMapArea(L.latLngBounds([b.getSouth() - 0.012, b.getWest() - 0.016], [b.getNorth() + 0.012, b.getEast() + 0.016])); }
+            if (pts.length) { const b = L.latLngBounds(pts); setMapArea(L.latLngBounds([b.getSouth() - MAP_PAD[0], b.getWest() - MAP_PAD[1]], [b.getNorth() + MAP_PAD[0], b.getEast() + MAP_PAD[1]])); }
             routesLoaded = true; refreshAll(); if (!SIM && home) fitHomeAndKing(); });
 
         // ============================================================

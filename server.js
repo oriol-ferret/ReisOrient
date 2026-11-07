@@ -530,8 +530,9 @@ const TILE_DIR = path.join(DATA_DIR, 'tiles');
 const TILE_TTL = 7 * 86400 * 1000;
 const TILE_MIN_Z = 13, TILE_MAX_Z = 18;
 const TILE_UA = `ReisOrient/1.0 (+https://github.com/oriol-ferret/ReisOrient${process.env.NOMINATIM_EMAIL ? '; ' + process.env.NOMINATIM_EMAIL : ''})`;
-// Zona de mosaics: l'entorn de les rutes (~2,5 km). Fora, 404: l'endpoint no és un proxy obert de tot el món.
-const TILE_ZONE = [GEO_ZONE[0] - 0.014, GEO_ZONE[1] - 0.02, GEO_ZONE[2] + 0.014, GEO_ZONE[3] + 0.02];
+// Zona de mosaics: les rutes + 0,032° N/S i 0,047° E/O (~3,5 km). Ha de contenir l'àrea que el client deixa veure
+// (MAP_PAD a index.html: 0,03 / 0,045). Fora, 404: l'endpoint no és un proxy obert de tot el món.
+const TILE_ZONE = [GEO_ZONE[0] - 0.026, GEO_ZONE[1] - 0.039, GEO_ZONE[2] + 0.026, GEO_ZONE[3] + 0.039];
 const lon2x = (lon, z) => Math.floor((lon + 180) / 360 * 2 ** z);
 const lat2y = (lat, z) => { const r = lat * Math.PI / 180; return Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 2 ** z); };
 function tileAllowed(z, x, y) {
