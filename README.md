@@ -138,9 +138,22 @@ MIT — Desenvolupat amb il·lusió per fer brillar la nit de Reis. 🌟
 | `GEO_BBOX` | `minLat,minLon,maxLat,maxLon` de la zona vàlida per als pings (per defecte Catalunya). |
 | `NOMINATIM_EMAIL` | Contacte que demana la política d'OpenStreetMap per al nom dels carrers. |
 | `SERVE_PROMO=1` | Serveix `/promo-video/` (desactivat per defecte). |
+| `ALLOW_UNKNOWN_DEVICES=1` | Accepta pings de dispositius que no estan donats d'alta a `/admin` (per defecte es rebutgen). |
+| `GPS_MAX_ACCURACY` | Precisió màxima acceptada, en metres (60). |
+| `GPS_JUMP_M` / `GPS_SUSPECT_SPEED` | Un punt a més de 40 m i a més de 3 m/s de l'últim bo es considera un salt sospitós. |
 
-Altres: `/demo` mostra la simulació; `/health` per a les comprovacions de disponibilitat. El servidor descarta posicions
-impossibles (fora de zona, salts de centenars de km, precisió dolenta) i fa còpia de seguretat de `data.json`.
+Altres: `/demo` mostra la simulació; `/health` per a les comprovacions de disponibilitat. El servidor fa còpia de seguretat de `data.json`.
+
+### Filtre del GPS i rastre pels carrers
+
+- **Salts falsos** (`gps.js`): un punt sospitós (massa lluny i massa ràpid per a una cavalcada) es reté fins al ping
+  següent. Si aquest torna a prop d'on era el rei, el salt es descarta; si confirma la nova posició, s'accepten tots dos.
+  Si n'arriben 3 de seguits, es dona per bona la nova posició. També es descarten els fixos de precisió dolenta i fora
+  de zona, i en arrencar es netegen els salts falsos que hi hagués a l'historial.
+- **Rastre pels carrers** (`index.html`): els punts a menys de 40 m de la ruta del rei s'enganxen al traçat de la ruta, i
+  entre dos punts es dibuixa el tros de ruta que els uneix (no una recta per dins de les illes de cases). El rei també es
+  dibuixa sobre el carrer. Fora de la ruta es mostra la posició GPS tal qual. **El rastre és tan bo com el traçat**: si
+  una ruta té pocs punts i talla cantonades, puja'n un de més detallat des de `/admin`.
 
 ### Test de càrrega
 

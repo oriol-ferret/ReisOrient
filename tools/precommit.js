@@ -59,7 +59,7 @@ for (const line of diff.split('\n')) {
 }
 
 // 3. Sintaxi
-const jsFiles = staged.filter(f => /^(server|statspage|config|admin)\.js$|^tools\/.*\.js$/.test(f));
+const jsFiles = staged.filter(f => /^(server|statspage|config|admin|gps)\.js$|^tools\/.*\.js$/.test(f));
 for (const f of jsFiles) {
     const r = spawnSync(process.execPath, ['--check', path.join(ROOT, f)], { encoding: 'utf8' });
     if (r.status !== 0) fail(`${f}: error de sintaxi\n${(r.stderr || '').split('\n').slice(0, 6).join('\n')}`);

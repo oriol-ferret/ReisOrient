@@ -6,6 +6,7 @@ const path = require('path');
 const zlib = require('zlib');
 const crypto = require('crypto');
 const querystring = require('querystring');
+const gps = require('./gps');
 
 // ============================================================
 // Configuració (tot opcional via variables d'entorn)
@@ -66,7 +67,12 @@ function loadFromDisk() {
             kings.set(id, pts);
         }
     }
-    for (const arr of kings.values()) prune(arr);
+    for (const [id, arr] of kings) {
+        prune(arr);
+        // Neteja els salts falsos que s'hagin desat abans d'existir el filtre (anada i tornada impossible a peu)
+        const clean = gps.despike(arr);
+        if (clean.length !== arr.length) { console.log(`[DB] ${id}: ${arr.length - clean.length} salts falsos eliminats de l'historial`); kings.set(id, clean); dirty = true; }
+    }
 }
 loadFromDisk();
 console.log(`[DB] Reis en memòria: ${[...kings.keys()].join(', ') || 'cap (net)'}`);
@@ -79,7 +85,7 @@ function trailsInfo() {
 function clearTrails(id) {
     const n = id ? (kings.get(id) || []).length : [...kings.values()].reduce((s, a) => s + a.length, 0);
     if (id) kings.delete(id); else kings.clear();
-    rejects.clear();
+    gpsFilter.reset(id || undefined);
     trailEpoch = Math.max(Date.now(), trailEpoch + 1);
     version++; dirty = true;
     for (const k in snapCache) delete snapCache[k]; // la resposta següent ja surt buida (sense esperar la memòria cau de 2 s)
@@ -264,42 +270,32 @@ function normalizeId(raw) {
     return id === 'Melchor' ? 'Melcior' : id;
 }
 
+// Comparació de temps constant que tampoc revela la llargada del secret (es comparen resums de mida fixa)
 const safeEqual = (a, b) => {
-    const x = Buffer.from(String(a)), y = Buffer.from(String(b));
-    return x.length === y.length && crypto.timingSafeEqual(x, y);
+    const h = v => crypto.createHash('sha256').update(String(v)).digest();
+    return crypto.timingSafeEqual(h(a), h(b)) && String(a).length === String(b).length;
 };
 
-function haversine(lat1, lon1, lat2, lon2) {
-    const R = 6371000, r = Math.PI / 180;
-    const a = Math.sin((lat2 - lat1) * r / 2) ** 2 + Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin((lon2 - lon1) * r / 2) ** 2;
-    return 2 * R * Math.asin(Math.sqrt(a));
-}
-
 const inBox = (lat, lon, [minLat, minLon, maxLat, maxLon]) => lat >= minLat && lat <= maxLat && lon >= minLon && lon <= maxLon;
-const rejects = new Map(); // id -> rebutjos seguits (si n'hi ha molts, el "darrer punt" és el dolent: s'accepta)
 const warnedAt = new Map();
+const gpsFilter = gps.createFilter(); // salts falsos: vegeu gps.js
+const warnPing = (id, why) => {
+    if (Date.now() - (warnedAt.get(id) || 0) > 10000) { warnedAt.set(id, Date.now()); console.warn(`[PING] ${id}: ${why}`); }
+};
 
-// Descarta fixos GPS absurds (0,0, coordenades fora de zona, salts de centenars de km, precisió dolenta)
-function plausible(id, ts, lat, lon, accuracy) {
-    let why = null;
-    if (!inBox(lat, lon, GEO_BBOX)) why = 'fora de zona';
-    else if (Number.isFinite(accuracy) && accuracy > 150) why = `precisió ${accuracy} m`;
-    else {
-        const arr = kings.get(id), last = arr && arr[arr.length - 1];
-        if (last && ts >= last[0]) {
-            const d = haversine(last[1], last[2], lat, lon), dt = Math.max(1, (ts - last[0]) / 1000);
-            if (d > 300 && d / dt > 40) why = `salt de ${Math.round(d)} m en ${Math.round(dt)} s`;
-        }
+// Decideix quins punts s'afegeixen: rebutja fixos absurds i passa la resta pel filtre de salts (pot retenir un punt
+// fins al ping següent, o alliberar-ne diversos de cop quan es confirma un moviment real).
+function filterPing(id, ts, lat, lon, accuracy) {
+    if (!inBox(lat, lon, GEO_BBOX)) { warnPing(id, 'descartat: fora de zona'); return []; }
+    const arr = kings.get(id), last = arr && arr.length ? arr[arr.length - 1] : null, p = [ts, lat, lon];
+    if (last && ts < last[0]) {
+        const why = gps.checkLate(arr, p, accuracy);
+        if (why) { warnPing(id, 'descartat: ' + why); return []; }
+        return [p];
     }
-    if (!why) { rejects.delete(id); return true; }
-    if (why.startsWith('salt')) {
-        // Només els salts compten: si en vénen 3 de seguits, el "darrer punt" era el dolent i el nou és el bo
-        const n = (rejects.get(id) || 0) + 1;
-        if (n >= 3) { rejects.delete(id); return true; }
-        rejects.set(id, n);
-    }
-    if (Date.now() - (warnedAt.get(id) || 0) > 10000) { warnedAt.set(id, Date.now()); console.warn(`[PING] ${id} descartat: ${why}`); }
-    return false;
+    const r = gpsFilter.check(id, p, accuracy, last);
+    if (r.drop) warnPing(id, r.drop);
+    return r.accept;
 }
 
 function handlePing(params, res) {
@@ -314,6 +310,12 @@ function handlePing(params, res) {
         return reply(200, 'MISSING_FIELDS'); // 200 perquè l'app no entri en bucle de reintents
     }
     if (!kings.has(id) && kings.size >= MAX_KINGS) return reply(200, 'TOO_MANY_DEVICES');
+    // Només els dispositius donats d'alta a /admin (evita que algú ompli el mapa de «reis» inventats).
+    // ALLOW_UNKNOWN_DEVICES=1 ho desactiva (p. ex. per provar un mòbil nou abans de crear-lo).
+    if (process.env.ALLOW_UNKNOWN_DEVICES !== '1' && !appConfig.get().kings.some(k => k.id === id)) {
+        warnPing(id, "dispositiu desconegut (dona'l d'alta a /admin)");
+        return reply(200, 'UNKNOWN_DEVICE');
+    }
 
     // Si el dispositiu envia l'hora real (pings en buffer sense cobertura) i és plausible, s'usa
     let ts = Date.now();
@@ -322,8 +324,9 @@ function handlePing(params, res) {
         if (t < 1e12) t *= 1000; // segons -> ms
         if (t <= ts + 60000 && t >= ts - HISTORY_MS) ts = t;
     }
-    if (!plausible(id, ts, lat, lon, Number(params.accuracy))) return reply(200, 'OK'); // 200: l'app no ha de reintentar
-    addPoint(id, ts, lat, lon);
+    // Sempre 200: l'app no ha de reintentar un punt que hem descartat a propòsit
+    const accepted = filterPing(id, ts, lat, lon, Number(params.accuracy));
+    for (const [t2, la, lo] of accepted) addPoint(id, t2, la, lo);
     inc(hourBucket(Date.now()).pings ||= {}, id, 20); lastPing.set(id, Date.now()); statsDirty = true;
     if (process.env.DEBUG) console.log(`[PING] ${id} ${lat},${lon}`);
     reply(200, 'OK');
@@ -464,9 +467,7 @@ const esc = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 
 const statsPage = require('./statspage');
 function handleStats(req, res, query, pathname) {
-    const given = Buffer.from(String(req.headers['x-stats-key'] || query.key || ''));
-    const want = Buffer.from(STATS_KEY);
-    if (!STATS_KEY || given.length !== want.length || !crypto.timingSafeEqual(given, want)) { res.writeHead(404); return res.end('Not Found'); }
+    if (!STATS_KEY || !safeEqual(req.headers['x-stats-key'] || query.key || '', STATS_KEY)) { res.writeHead(404); return res.end('Not Found'); }
     const r = statsPage.render({ pathname, query, stats, live, recent, lastPing, now: Date.now() });
     res.writeHead(r.status, r.headers);
     res.end(r.body);
@@ -702,7 +703,6 @@ async function handle(req, res) {
     for (const k in SEC_HEADERS) res.setHeader(k, SEC_HEADERS[k]);
     // HSTS només si la petició va per HTTPS (via el proxy); mai a localhost/HTTP
     if (String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https') res.setHeader('Strict-Transport-Security', 'max-age=15552000');
-    if (req.headers['x-forwarded-proto'] === 'https') res.setHeader('Strict-Transport-Security', 'max-age=15552000');
 
     // /tracker (sense barra) -> /tracker/ només per a navegadors, no per als pings de Traccar
     if (pathname === '/tracker' && req.method !== 'POST' && !query.id) {

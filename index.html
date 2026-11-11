@@ -659,6 +659,7 @@
             trailOpacityMax: 0.9,       // Opacitat del tram més recent
             trailOpacityMin: 0.4,       // El tram més antic es manté visible, només amb menys color
             trailSegments: 8,           // Nombre de segments del degradat
+            snapMeters: 40,             // GPS a menys d'això de la ruta → el rastre i el rei van pel carrer (no per dins les cases)
 
             // 🔄 Taxa de refresc (Polling)
             refreshIntervalSecs: 10,
@@ -908,6 +909,12 @@
         async function updateMarker(kingId, lat, lng, timestamp) {
             if (!lat || !lng) return;
             const king = kingsState[kingId];
+            // Si és sobre la seva ruta, el rei es dibuixa al carrer (no a dins d'una casa pel soroll del GPS)
+            const lastPt = king.trailPoints[king.trailPoints.length - 1], route = routeOf(kingId);
+            if (route && lastPt && lastPt.lat === lat && lastPt.lng === lng) {
+                const s = snappedOf(king, route, lastPt);
+                if (s) [lat, lng] = s.point;
+            }
             const latlng = L.latLng(lat, lng);
 
             if (!king.marker) {
@@ -949,12 +956,29 @@
             }
         }
 
+        // El rastre segueix el traçat de la ruta (que va pels carrers): entre dos punts GPS sobre la ruta es dibuixa el tros
+        // de carrer que els uneix, no una recta que travessa les illes de cases. Només els trams fora de ruta van en recta.
+        // pieces[j] = coordenades que porten del punt j-1 al punt j (l'última és la posició mostrada del punt j).
+        function trailPieces(kingId) {
+            const king = kingsState[kingId], route = routeOf(kingId);
+            ensureSnaps(king, route);
+            let prev = null;
+            return king.trailPoints.map(p => {
+                const s = route && p._s;
+                const pos = s ? s.point : [p.lat, p.lng];
+                const piece = s && prev ? [...routeSlice(route, prev, s), pos] : [pos];
+                prev = s || null;
+                return piece;
+            });
+        }
+
         function drawTrail(kingId) {
             const king = kingsState[kingId];
             king.trailGroup.clearLayers();
 
             if (king.trailPoints.length < 2) return;
 
+            const pieces = trailPieces(kingId);
             const segments = CONFIG.trailSegments;
             const pointsPerSeg = Math.max(2, Math.ceil(king.trailPoints.length / segments));
 
@@ -963,7 +987,8 @@
                 const end = Math.min((i + 1) * pointsPerSeg + 1, king.trailPoints.length);
                 if (start >= king.trailPoints.length) break;
 
-                const segPoints = king.trailPoints.slice(start, end).map(p => [p.lat, p.lng]);
+                const segPoints = [pieces[start][pieces[start].length - 1]];
+                for (let j = start + 1; j < end; j++) segPoints.push(...pieces[j]);
                 if (segPoints.length < 2) continue;
 
                 const t = segments === 1 ? 1 : i / (segments - 1);
@@ -1028,6 +1053,61 @@
             const seg = route.cum[i + 1] - route.cum[i] || 1;
             const t = (d - route.cum[i]) / seg, a = route.coords[i], b = route.coords[i + 1];
             return [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
+        }
+
+        // Projecció amb continuïtat: si la ruta passa dos cops pel mateix carrer (anada i tornada), tria el tram que
+        // encaixa amb on era el rei just abans (la cavalcada avança; enrere costa molt). null si és lluny de la ruta.
+        function snapToRoute(route, lat, lng, prevAlong) {
+            const k = Math.cos(lat * Math.PI / 180), M = 111320;
+            let best = null, bestScore = Infinity;
+            for (let i = 0; i < route.coords.length - 1; i++) {
+                const a = route.coords[i], b = route.coords[i + 1];
+                const ax = (a[1] - lng) * k, ay = a[0] - lat, bx = (b[1] - lng) * k, by = b[0] - lat;
+                const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+                const t = len2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2)) : 0;
+                const off = Math.hypot(ax + t * dx, ay + t * dy) * M;
+                if (off > CONFIG.snapMeters) continue;
+                const along = route.cum[i] + t * (route.cum[i + 1] - route.cum[i]);
+                let score = off;
+                if (prevAlong != null) score += along < prevAlong ? (prevAlong - along) * 0.5 : Math.max(0, along - prevAlong - 300) * 0.05;
+                if (score < bestScore) {
+                    bestScore = score;
+                    best = { i, off, along, point: [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])] };
+                }
+            }
+            return best;
+        }
+
+        // Calcula (un sol cop per punt) on cau cada punt del rastre sobre la ruta. El soroll del GPS que fa recular uns
+        // metres es manté al mateix lloc, perquè el rastre no faci dents de serra endavant i enrere pel carrer.
+        function ensureSnaps(king, route) {
+            if (!route) return;
+            let prev = null;
+            for (const p of king.trailPoints) {
+                if (p._sr !== route) {
+                    p._sr = route;
+                    p._s = snapToRoute(route, p.lat, p.lng, prev ? prev.along : null);
+                    if (p._s && prev && p._s.along < prev.along && prev.along - p._s.along < 60) {
+                        p._s = { ...p._s, along: prev.along, i: prev.i, point: prev.point };
+                    }
+                }
+                prev = p._s || prev;
+            }
+        }
+
+        // Vèrtexs de la ruta entre dos punts projectats (en ordre de recorregut, en qualsevol sentit). Usa l'índex del tram.
+        function routeSlice(route, a, b) {
+            const out = [];
+            if (b.along >= a.along) { for (let i = a.i + 1; i <= b.i; i++) if (route.cum[i] > a.along && route.cum[i] < b.along) out.push(route.coords[i]); }
+            else { for (let i = a.i; i > b.i; i--) if (route.cum[i] < a.along && route.cum[i] > b.along) out.push(route.coords[i]); }
+            return out;
+        }
+
+        // On cau un punt del rastre sobre la ruta (null si és lluny de la ruta)
+        function snappedOf(king, route, p) {
+            if (!route) return null;
+            ensureSnaps(king, route);
+            return p._sr === route ? p._s : snapToRoute(route, p.lat, p.lng, null);
         }
 
         // Velocitat mitjana dels últims 5 min (inclou les aturades de repartiment: és el ritme real del servei)
@@ -1181,7 +1261,13 @@
             // El mapa només cobreix l'entorn de les rutes (és el que el servidor té en cau)
             const pts = ROUTES.flatMap(r => r.coords || []);
             if (pts.length) { const b = L.latLngBounds(pts); setMapArea(L.latLngBounds([b.getSouth() - MAP_PAD[0], b.getWest() - MAP_PAD[1]], [b.getNorth() + MAP_PAD[0], b.getEast() + MAP_PAD[1]])); }
-            routesLoaded = true; refreshAll(); if (!SIM && home) fitHomeAndKing(); });
+            routesLoaded = true;
+            for (const id in kingsState) { // els rastres ja dibuixats passen a seguir els carrers
+                const k = kingsState[id], last = k.trailPoints[k.trailPoints.length - 1];
+                drawTrail(id);
+                if (last && k.marker) updateMarker(id, last.lat, last.lng, last.timestamp);
+            }
+            refreshAll(); if (!SIM && home) fitHomeAndKing(); });
 
         // ============================================================
         // 📏 DISTÀNCIA FINS A CASA (el rei reparteix casa per casa, a pas lent)
@@ -1198,7 +1284,8 @@
             for (let i = pts.length - 2; i >= 0 && last.timestamp - pts[i].timestamp <= 600000; i--) first = pts[i];
             const dt = (last.timestamp - first.timestamp) / 1000;
             if (dt < 90) return null;
-            const a = projectOnRoute(route, first.lat, first.lng), b = projectOnRoute(route, last.lat, last.lng);
+            const a = snappedOf(king, route, first) || projectOnRoute(route, first.lat, first.lng);
+            const b = snappedOf(king, route, last) || projectOnRoute(route, last.lat, last.lng);
             return (b.along - a.along) / dt;
         }
 
@@ -1208,7 +1295,7 @@
             let ahead = null;
             if (home && route && last) {
                 if (!route.hp) route.hp = projectOnRoute(route, home.lat, home.lng);
-                const hp = route.hp, pr = projectOnRoute(route, last.lat, last.lng);
+                const hp = route.hp, pr = snappedOf(king, route, last) || projectOnRoute(route, last.lat, last.lng);
                 if (hp.off > 250) king.toHome = { status: 'far' };
                 else if (pr.off >= 80) king.toHome = { status: 'offroute' };
                 else {
